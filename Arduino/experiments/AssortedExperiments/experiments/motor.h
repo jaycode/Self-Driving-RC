@@ -1,5 +1,11 @@
 /*
  * Header file for motor driver class
+ *
+ * created 27 Sep 2013
+ * by Blaise Jarrett
+ *
+ * This example code is in the public domain.
+ *
  */
 
 // Include guard
@@ -11,9 +17,13 @@
 // types (uint8_t - unsigned 8 bits)
 // See: http://www.nongnu.org/avr-libc/user-manual/group__avr__stdint.html
 #include <stdint.h>
-#include "helpers.h"
 
+// Declare our motor class
+// For info on Object Oriented Programming see:
+// http://en.wikipedia.org/wiki/Object-oriented_programming
 class Motor {
+  // Access modifier - Make these members public
+  // See: http://en.wikipedia.org/wiki/Access_modifiers
   public:
     // Constructor - Creates our Motor object from 3 pins
     Motor(uint8_t pinIN1, uint8_t pinIN2, uint8_t pinEN);
@@ -27,25 +37,15 @@ class Motor {
     void brake();
     // Lets the motor freely spin
     void freeRun();
-    
-  protected:
+  // Access modifier - Make these members private
+  private:
+    // We need instance variables to
+    // remember the pins for the motor.
     uint8_t pinIN1_;
     uint8_t pinIN2_;
     uint8_t pinEN_;
+// The end of our class declaration
 };
 
-class SteeringWheel : public Motor {
-  /*
-   * Motor + feed pin.
-   */
-  public:
-    SteeringWheel(uint8_t pinIN1, uint8_t pinIN2, uint8_t pinEN, uint8_t pinFeed);
-    int readFeed();
-    float readNormValue(float minB, float maxB); 
-  protected:
-    uint8_t pinFeed_;
-    int minFeed_ = 0;
-    int maxFeed_ = 1023;
-};
-
+// The end of our include guard
 #endif

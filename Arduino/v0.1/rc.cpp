@@ -1,59 +1,105 @@
 #include "rc.h"
 #include <Arduino.h>
 
-RC::RC(uint8_t pinGear, uint8_t pinRudo, uint8_t pinElev,
-       uint8_t pinAile, uint8_t pinThro) : 
-       pinGear_(pinGear), pinRudo_(pinRudo), pinElev_(pinElev),
-       pinAile_(pinAile), pinThro_(pinThro) {
-  pinMode(pinGear_, INPUT);
-  pinMode(pinRudo_, INPUT);
-  pinMode(pinElev_, INPUT);
-  pinMode(pinAile_, INPUT);
-  pinMode(pinThro_, INPUT);
+RC::RC(uint8_t pinAux1, uint8_t pinGear, uint8_t pinRudo,
+       uint8_t pinElev, uint8_t pinAile, uint8_t pinThro) : 
+       pinAux1_(pinAux1), pinGear_(pinGear), pinRudo_(pinRudo),
+       pinElev_(pinElev), pinAile_(pinAile), pinThro_(pinThro) {
+  if (pinAux1_ > -1) {
+    pinMode(pinAux1_, INPUT);
+  }
+  if (pinGear_ > -1) {
+    pinMode(pinGear_, INPUT);
+  }
+  if (pinRudo_ > -1) {
+    pinMode(pinRudo_, INPUT);
+  }
+  if (pinElev_ > -1) {
+    pinMode(pinElev_, INPUT);
+  }
+  if (pinAile_ > -1) {
+    pinMode(pinAile_, INPUT);
+  }
+  if (pinThro_ > -1) {
+    pinMode(pinThro_, INPUT);
+  }
 }
 
-uint8_t RC::readValue(uint8_t channel) {
-  float valueRaw;
-  uint8_t value;
+int RC::readValue(uint8_t channel) {
+  int valueRaw;
   switch(channel) {
+    case RC_AUX1: valueRaw = pulseIn (pinAux1_,HIGH);
+                  break;
     case RC_GEAR: valueRaw = pulseIn (pinGear_,HIGH);
-//                  normalize(valueRaw);
-                  Serial.print("gear: ");
-                  Serial.print(valueRaw);
                   break;
     case RC_RUDO: valueRaw = pulseIn (pinRudo_,HIGH);
-//                  normalize(valueRaw);
-                  Serial.print(" rudo: ");
-                  Serial.print(valueRaw);
                   break;
     case RC_ELEV: valueRaw = pulseIn (pinElev_,HIGH);
-//                  normalize(valueRaw);
-                  Serial.print(" elev: ");
-                  Serial.print(valueRaw);
                   break;
     case RC_AILE: valueRaw = pulseIn (pinAile_,HIGH);
-//                  normalize(valueRaw);
-                  Serial.print(" aile: ");
-                  Serial.print(valueRaw);
                   break;
     case RC_THRO: valueRaw = pulseIn (pinThro_,HIGH);
-//                  normalize(valueRaw);
-                  Serial.print(" thro: ");
-                  Serial.println(valueRaw);
                   break;
   }
-  return 0;
+  return valueRaw;
 }
 
-uint8_t RC::normalize(float value, float valueMin, float valueMax,
-                      float normMax) {
-  float output = (((value - valueMin)/(valueMax - valueMin)) * (normMax*2)) - normMax;
-  if (output < -normMax) {
-    output = -normMax;
+int RC::readNormValue(uint8_t channel, int minB/*=0*/, int maxB/*=255*/, int tolerance/*=50*/) {
+  int valueRaw;
+  int value;
+  switch(channel) {
+    case RC_AUX1: valueRaw = pulseIn (pinAux1_,HIGH);
+                  value = digitize(valueRaw, tolerance);
+                  break;
+    case RC_GEAR: valueRaw = pulseIn (pinGear_,HIGH);
+                  value = readNormalized(valueRaw, minB, maxB);
+                  break;
+    case RC_RUDO: valueRaw = pulseIn (pinRudo_,HIGH);
+                  value = readNormalized(valueRaw, minB, maxB);
+                  break;
+    case RC_ELEV: valueRaw = pulseIn (pinElev_,HIGH);
+                  value = readNormalized(valueRaw, minB, maxB);
+                  break;
+    case RC_AILE: valueRaw = pulseIn (pinAile_,HIGH);
+                  value = readNormalized(valueRaw, minB, maxB);
+                  break;
+    case RC_THRO: valueRaw = pulseIn (pinThro_,HIGH);
+                  value = normalize((float)valueRaw, (float)minAThro_,
+                                       (float)maxA_, (float)minB, (float)maxB);
+                  value = (int)value;
+                  break;
   }
-  else if (output > normMax) {
-    output = normMax;
+  return value;
+}
+
+int RC::readNormalized(int value, int minB, int maxB) {
+  return (int)normalizeBi((float)value, (float)minA_, (float)maxA_, (float)minB, (float)maxB);
+}
+
+uint8_t RC::digitize(const int value, const int bins[], const int binsSize, const int tolerance) {
+  // C++ decays the array when it is passed into a function thus finding
+  // size with the following methods won't work.
+  // We pass binsSize parameter instead.
+  // >>> int binsSize = sizeof(bins)/sizeof(bins[0]);
+  // >>> int binsSize = sizeof(bins)/sizeof(int);
+  for (int i=0; i<binsSize; i++) {
+    int diff = value - bins[i];
+    if (fabs(diff) <= tolerance) {
+      return i;
+    }
   }
-  return output;
+  return (sizeof(bins)-1);
+}
+
+uint8_t RC::digitize(const int value, const int tolerance) {
+  return RC::digitize(value, defaultBins_, defaultBinsSize_, tolerance);
+}
+
+int RC::getMinA() {
+  return minA_;
+}
+
+int RC::getMaxA() {
+  return maxA_;
 }
 

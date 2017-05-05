@@ -24,9 +24,6 @@ class RC {
     RC(uint8_t pinAux1, uint8_t pinGear, uint8_t pinRudo,
        uint8_t pinElev, uint8_t pinAile, uint8_t pinThro);
     uint8_t readValue(uint8_t channel);
-  protected:
-    uint8_t normalize(float value, float valueMin, float valueMax,
-                      float normMax);
   private:
     uint8_t pinAux1_;
     uint8_t pinGear_;

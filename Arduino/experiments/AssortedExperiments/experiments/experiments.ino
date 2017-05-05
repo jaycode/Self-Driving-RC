@@ -5,24 +5,24 @@
 // The Right Motors Enable Pin
 // Labelled on the motor driver as ENA
 // Be carful of PWM Timers
-const int motorRENPin = 10;
+const int motorRENPin = 2;
 // The Right Motors IN1 Pin
 // Labelled on the motor driver as IN1
-const int motorRIN2Pin = 9;
+const int motorRIN2Pin = 4;
 // The Right Motors IN2 Pin
 // Labelled on the motor driver as IN2
-const int motorRIN1Pin = 8;
+const int motorRIN1Pin = 3;
 
 // The Left Motors Enable Pin
 // Labelled on the motor driver as ENB
 // Be carful of PWM Timers
-const int motorLENPin = 5;
+const int motorLENPin = 7;
 // The Left Motors IN1 Pin
 // Labelled on the motor driver as IN3
-const int motorLIN2Pin = 7;
+const int motorLIN2Pin = 6;
 // The Left Motors IN2 Pin
 // Labelled on the motor driver as IN4
-const int motorLIN1Pin = 6;
+const int motorLIN1Pin = 5;
 
 int sensorPin = A0;    // select the input pin for the potentiometer
 //int sensorValue = 0;  // variable to store the value coming from the sensor

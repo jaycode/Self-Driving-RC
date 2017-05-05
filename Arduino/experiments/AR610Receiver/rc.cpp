@@ -1,29 +1,38 @@
 #include "rc.h"
 #include <Arduino.h>
 
-float maxRudo = 1600;
-float minRudo = 1600;
-float maxElev = 1600;
-float minElev = 1600;
-float maxAile = 1600;
-float minAile = 1600;
-float maxThro = 1600;
-float minThro = 1600;
+int maxRudo = 1600;
+int minRudo = 1600;
+int maxElev = 1600;
+int minElev = 1600;
+int maxAile = 1600;
+int minAile = 1600;
+int maxThro = 1600;
+int minThro = 1600;
 
 RC::RC(uint8_t pinAux1, uint8_t pinGear, uint8_t pinRudo, 
        uint8_t pinElev, uint8_t pinAile, uint8_t pinThro) : 
        pinAux1_(pinAux1), pinGear_(pinGear), pinRudo_(pinRudo),
        pinElev_(pinElev), pinAile_(pinAile), pinThro_(pinThro) {
-  pinMode(pinAux1_, INPUT);
-  pinMode(pinGear_, INPUT);
-  pinMode(pinRudo_, INPUT);
-  pinMode(pinElev_, INPUT);
-  pinMode(pinAile_, INPUT);
-  pinMode(pinThro_, INPUT);
+  if (pinGear_ > -1) {
+    pinMode(pinGear_, INPUT);
+  }
+  if (pinRudo_ > -1) {
+    pinMode(pinRudo_, INPUT);
+  }
+  if (pinElev_ > -1) {
+    pinMode(pinElev_, INPUT);
+  }
+  if (pinAile_ > -1) {
+    pinMode(pinAile_, INPUT);
+  }
+  if (pinThro_ > -1) {
+    pinMode(pinThro_, INPUT);
+  }
 }
 
 uint8_t RC::readValue(uint8_t channel) {
-  float valueRaw;
+  int valueRaw;
   uint8_t value;
   switch(channel) {
     case RC_AUX1: valueRaw = pulseIn (pinAux1_,HIGH);
@@ -96,17 +105,5 @@ uint8_t RC::readValue(uint8_t channel) {
                   break;
   }
   return 0;
-}
-
-uint8_t RC::normalize(float value, float valueMin, float valueMax,
-                      float normMax) {
-  float output = (((value - valueMin)/(valueMax - valueMin)) * (normMax*2)) - normMax;
-  if (output < -normMax) {
-    output = -normMax;
-  }
-  else if (output > normMax) {
-    output = normMax;
-  }
-  return output;
 }
 

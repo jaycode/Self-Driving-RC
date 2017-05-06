@@ -35,9 +35,6 @@ void Car::brake() {
 void Car::listen() {
   // We set steer speed as 0 here to allow for two joysticks controlling the steering wheel.
   steerSpeed_ = 0;
-//  Serial.print("elevSpeed_: ");
-//  Serial.print(elevSpeed_);
-//  Serial.print(" ");
   if (elevSpeed_ == 0) {
 //    Serial.print("listen thro ");
     listenThro();
@@ -82,8 +79,6 @@ void Car::listenElev() {
 
 void Car::listenAile() {
   int aile = rc_.readValue(RC_AILE);
-//  Serial.print("aile: ");
-//  Serial.print(aile);
   if (aile == 0) {
     // Means the remote controller is off.
     curRCAngle_ = 0;
@@ -97,7 +92,8 @@ void Car::listenAile() {
 
 void Car::steer(const int steerSpeed) {
   int ss = steerSpeed;
-  ss = log10(fabs(ss))*35;
+  ss = log10(fabs(ss))*100;
+  
   if (steerSpeed < 0) {
     ss = -ss;
   }
@@ -133,12 +129,6 @@ void Car::syncSteering(const int steerSpeed) {
    */
   float diff = curRCAngle_ - curSteerAngle_;
   int ss = (steerSpeed/100)*(steerSpeed/100);
-//  Serial.print("curRCAngle: ");
-//  Serial.print(curRCAngle_);
-//  Serial.print(" curSteerAngle_: ");
-//  Serial.print(curSteerAngle_);
-//  Serial.print(" steerSpeed: ");
-//  Serial.println(ss);
   if (steerReverse_) {
     diff = -diff;
   }

@@ -19,10 +19,10 @@ class Motor {
     Motor(uint8_t pinIN1, uint8_t pinIN2, uint8_t pinEN);
     // Drive the motor forward at a defined speed
     // Speed is an 8bit unsigned integer. Max 255, Min 0.
-    void forward(uint8_t speed);
+    void forward(int speed);
     // Drive the motor backwards at a defined speed
     // Speed is an 8bit unsigned integer. Max 255, Min 0.
-    void backward(uint8_t speed);
+    void backward(int speed);
     // Brakes the motor
     void brake();
     // Lets the motor freely spin

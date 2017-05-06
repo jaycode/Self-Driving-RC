@@ -13,24 +13,28 @@ Motor::Motor(uint8_t pinIN1, uint8_t pinIN2, uint8_t pinEN) :
   digitalWrite(pinEN_, LOW);
 }
 
-void Motor::forward(uint8_t speed)
+void Motor::forward(int speed)
 {
   /*
    * Spin the motor forward
    */
+  speed = min(255,max(0,speed));
   analogWrite(pinIN1_, speed);
+  Serial.println(speed);
   digitalWrite(pinIN2_, LOW);
 
   digitalWrite(pinEN_, HIGH);
 }
 
-void Motor::backward(uint8_t speed)
+void Motor::backward(int speed)
 {
   /*
    * Spin the motor backward
    */
+  speed = min(255,max(0,speed));
   digitalWrite(pinIN1_, LOW);
   analogWrite(pinIN2_, speed);
+  Serial.println(speed);
 
   // use the enable line with PWM to control the speed
   digitalWrite(pinEN_, HIGH);

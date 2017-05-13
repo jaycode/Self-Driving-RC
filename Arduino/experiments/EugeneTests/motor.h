@@ -15,8 +15,8 @@
 
 class Motor {
   public:
-    // Constructor - Creates our Motor object from 4 pins
-    Motor(uint8_t pinIN1, uint8_t pinIN2, uint8_t pinIN3, uint8_t pinIN4);
+    // Constructor - Creates our Motor object from 3 pins
+    Motor(uint8_t pinIN1, uint8_t pinIN2, uint8_t pinEN);
     // Drive the motor forward at a defined speed
     // Speed is an 8bit unsigned integer. Max 255, Min 0.
     void forward(int speed);
@@ -31,8 +31,7 @@ class Motor {
   protected:
     uint8_t pinIN1_;
     uint8_t pinIN2_;
-    uint8_t pinIN3_;
-    uint8_t pinIN4_;
+    uint8_t pinEN_;
 };
 
 class SteeringWheel : public Motor {
@@ -40,7 +39,7 @@ class SteeringWheel : public Motor {
    * Motor + feed pin.
    */
   public:
-    SteeringWheel(uint8_t pinIN1, uint8_t pinIN2, uint8_t pinFeed);
+    SteeringWheel(uint8_t pinIN1, uint8_t pinIN2, uint8_t pinEN, uint8_t pinFeed);
     int readFeed();
     float readNormValue(float minB, float maxB); 
   protected:

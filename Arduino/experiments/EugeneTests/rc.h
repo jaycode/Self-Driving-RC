@@ -25,13 +25,8 @@ class RC {
     // set to -1 to disable a pin.
     RC(uint8_t pinAux1, uint8_t pinGear, uint8_t pinRudo,
        uint8_t pinElev, uint8_t pinAile, uint8_t pinThro);
-    
-    // Divides returned values based on defaultBins_ and defaultBinsSize_.
-    // 
-    int readDigital(const uint8_t channel, const int *bins=0, const int binsSize=3, const int tolerance=50);
-    
-    // Read raw value.
     int readValue(uint8_t channel);
+    int readNormValue(uint8_t channel, int minB=0, int maxB=255, int tolerance=50);
 
     int getMinA();
     int getMaxA();
@@ -40,7 +35,12 @@ class RC {
     // Takes in value and B measurements, outputs the value in B range.
     int readNormalized(int value, int minB, int maxB);    
 
-    int digitize(const int value, const int bins[], const int binsSize, const int tolerance=50);
+    uint8_t digitize(const int value, const int tolerance=50);
+    uint8_t digitize(const int value, const int bins[], const int binsSize, const int tolerance=50);
+
+    const int minA_ = 1102;
+    const int minAThro_ = 1100; // Throttle has a different low range.
+    const int maxA_ = 1878;
 
     // Bins for digitize
     const int defaultBins_[3] = {1080, 1470, 1870};

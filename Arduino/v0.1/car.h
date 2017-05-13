@@ -12,47 +12,68 @@
 
 class Car {
   public:
+    // Class initialization
     Car(const Motor& inEngine, const SteeringWheel& inSteer, const RC& inRemoteController);
+    // Accelerate the car to a certain speed.
     void accelerateTo(int speed);
+
+    // Steer the car with a certain speed.
+    // Positive and negative values for opposite directions.
     void steer(const int steerSpeed);
+
+    // Brake the car.
     void brake();
+
+    // Getter for steerSpeed_
     uint8_t getSteerSpeed();
+    // Setter for steerSpeed_
     void setSteerSpeed();
+
+    // Run this in main loop to listen to user inputs.
     void listen();
 
   protected:
+    // Listen to Throttle inputs.
     void listenThro();
+    // Listen to Throttle inputs.
     void listenElev();
+    // Listen to Throttle inputs.
     void listenAile();
-    void syncSteering(const int steerSpeed);
+
+    // Listen to Aux1 inputs (0, 1, or 2).
   private:
     Motor engine_;
     SteeringWheel steer_;
     RC rc_;
-    float curAngle_ = 0;
     
-    bool engineReverse_ = true;
+    bool engineReverse_ = false;
     int engineMax_ = 255;
-    int engineMin_ = 80;
+    int engineMin_ = 30;
+
+    // Min value of direction A of most RC joysticks.
+    const float minA_ = 1102;
+    // Throttle has a different low range.
+    const float minAThro_ = 1100; 
+    // Min value of direction B of most RC joysticks.
+    const float maxA_ = 1878;
 
     // We don't want the car to run forward and backward at the same time
     // so we track both elev and throttle and pick only the one currently active.
     int throSpeed_ = 0;
     int elevSpeed_ = 0;
 
-    bool steerReverse_ = true;
+    bool steerReverse_ = false;
+    // Maximum steering power, 0 to 255.
     int steerMax_ = 150;
+    // Minimum steering power, 0 to 255.
     int steerMin_ = 20;
-    float steerAngleMin_ = -60.0;
-    float steerAngleMax_ = 60.0;
-    float curSteerAngle_ = 0;
-    float curRCAngle_ = 0;
     int steerSpeed_ = 0;
+
+    int curSteerFeed_ = 0;
+    int steerFeedMin_ = 0;
+    int steerFeedMax_ = 1023;
+    int steerSlack_ = 1;
     
-    // Angle of steer slack.
-    float steerSlack_ = 10;
-    
-    bool braked_ = true;
 };
 
 #endif

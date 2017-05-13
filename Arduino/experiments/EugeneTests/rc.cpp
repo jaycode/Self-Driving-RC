@@ -44,30 +44,44 @@ int RC::readValue(uint8_t channel) {
   return valueRaw;
 }
 
-int RC::readDigital(uint8_t channel, const int *bins/*={1080, 1470, 1870}*/, const int binsSize, const int tolerance) {
-  if (bins) {
-    int bins1[binsSize] = {1080, 1470, 1870};
-    bins = bins1;
-  }
+int RC::readNormValue(uint8_t channel, int minB/*=0*/, int maxB/*=255*/, int tolerance/*=50*/) {
   int valueRaw;
   int value;
   switch(channel) {
     case RC_AUX1: valueRaw = pulseIn (pinAux1_,HIGH);
-                  value = digitize(valueRaw, bins, binsSize, tolerance);
+                  value = digitize(valueRaw, tolerance);
                   break;
     case RC_GEAR: valueRaw = pulseIn (pinGear_,HIGH);
-                  value = digitize(valueRaw, bins, binsSize, tolerance);
+                  value = readNormalized(valueRaw, minB, maxB);
+                  break;
+    case RC_RUDO: valueRaw = pulseIn (pinRudo_,HIGH);
+                  value = readNormalized(valueRaw, minB, maxB);
+                  break;
+    case RC_ELEV: valueRaw = pulseIn (pinElev_,HIGH);
+                  value = readNormalized(valueRaw, minB, maxB);
+                  break;
+    case RC_AILE: valueRaw = pulseIn (pinAile_,HIGH);
+                  value = readNormalized(valueRaw, minB, maxB);
+                  break;
+    case RC_THRO: valueRaw = pulseIn (pinThro_,HIGH);
+                  value = normalize((float)valueRaw, (float)minAThro_,
+                                       (float)maxA_, (float)minB, (float)maxB);
+                  value = (int)value;
                   break;
   }
   return value;
 }
 
-int RC::digitize(const int value, const int bins[], const int binsSize, const int tolerance) {
+int RC::readNormalized(int value, int minB, int maxB) {
+  return (int)normalizeBi((float)value, (float)minA_, (float)maxA_, (float)minB, (float)maxB);
+}
+
+uint8_t RC::digitize(const int value, const int bins[], const int binsSize, const int tolerance) {
   // C++ decays the array when it is passed into a function thus finding
-  // size with the following methods won't work:
+  // size with the following methods won't work.
+  // We pass binsSize parameter instead.
   // >>> int binsSize = sizeof(bins)/sizeof(bins[0]);
   // >>> int binsSize = sizeof(bins)/sizeof(int);
-  // We pass binsSize parameter instead.
   for (int i=0; i<binsSize; i++) {
     int diff = value - bins[i];
     if (fabs(diff) <= tolerance) {
@@ -75,5 +89,17 @@ int RC::digitize(const int value, const int bins[], const int binsSize, const in
     }
   }
   return (sizeof(bins)-1);
+}
+
+uint8_t RC::digitize(const int value, const int tolerance) {
+  return RC::digitize(value, defaultBins_, defaultBinsSize_, tolerance);
+}
+
+int RC::getMinA() {
+  return minA_;
+}
+
+int RC::getMaxA() {
+  return maxA_;
 }
 

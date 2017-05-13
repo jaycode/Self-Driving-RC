@@ -1,16 +1,16 @@
 #include "motor.h"
 #include <Arduino.h>
 
-Motor::Motor(uint8_t pinIN1, uint8_t pinIN2, uint8_t pinEN) : 
-             pinIN1_(pinIN1), pinIN2_(pinIN2), pinEN_(pinEN)
+Motor::Motor(uint8_t pinIN1, uint8_t pinIN2, uint8_t pinIN3, uint8_t pinIN4) : 
+             pinIN1_(pinIN1), pinIN2_(pinIN2), pinIN3_(pinIN3), pinIN4_(pinIN4)
 {
   // set all the pins as outputs
   pinMode(pinIN1_, OUTPUT);
   pinMode(pinIN2_, OUTPUT);
-  pinMode(pinEN_, OUTPUT);
-
-  // disable the motor
-  digitalWrite(pinEN_, LOW);
+  if (pinIN3_) {
+    pinMode(pinIN3_, OUTPUT);
+    pinMode(pinIN4_, OUTPUT); 
+  }
 }
 
 void Motor::forward(int speed)
@@ -20,10 +20,11 @@ void Motor::forward(int speed)
    */
   speed = min(255,max(0,speed));
   analogWrite(pinIN1_, speed);
-  Serial.println(speed);
   digitalWrite(pinIN2_, LOW);
-
-  digitalWrite(pinEN_, HIGH);
+  if (pinIN3_) {
+    digitalWrite(pinIN3_, LOW);
+    analogWrite(pinIN4_, speed);
+  }
 }
 
 void Motor::backward(int speed)
@@ -34,10 +35,10 @@ void Motor::backward(int speed)
   speed = min(255,max(0,speed));
   digitalWrite(pinIN1_, LOW);
   analogWrite(pinIN2_, speed);
-  Serial.println(speed);
-
-  // use the enable line with PWM to control the speed
-  digitalWrite(pinEN_, HIGH);
+  if (pinIN3_) {
+    analogWrite(pinIN3_, speed);
+    digitalWrite(pinIN4_, LOW);
+  }
 }
 
 void Motor::brake()
@@ -47,20 +48,15 @@ void Motor::brake()
    */
   digitalWrite(pinIN1_, LOW);
   digitalWrite(pinIN2_, LOW);
-  digitalWrite(pinEN_, HIGH);
-}
-
-void Motor::freeRun()
-{
-  /*
-   * Let the motor free runs.
-   */
-  digitalWrite(pinEN_, LOW);
+  if (pinIN3_) {
+    digitalWrite(pinIN3_, LOW);
+    digitalWrite(pinIN4_, LOW);
+  }
 }
 
 SteeringWheel::SteeringWheel(
-  uint8_t pinIN1, uint8_t pinIN2, uint8_t pinEN, uint8_t pinFeed) : 
-  Motor(pinIN1, pinIN2, pinEN), pinFeed_(pinFeed){
+  uint8_t pinIN1, uint8_t pinIN2, uint8_t pinFeed) : 
+  Motor(pinIN1, pinIN2, NULL, NULL), pinFeed_(pinFeed){
   pinMode(pinFeed_, INPUT);
 }
 

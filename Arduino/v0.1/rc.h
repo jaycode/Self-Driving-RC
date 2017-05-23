@@ -27,8 +27,8 @@ class RC {
        uint8_t pinElev, uint8_t pinAile, uint8_t pinThro);
     
     // Divides returned values based on defaultBins_ and defaultBinsSize_.
-    // 
-    int readDigital(const uint8_t channel, const int *bins=0, const int binsSize=3, const int tolerance=50);
+    int readDigital(const uint8_t channel, const int bins[], const int binsSize=3, const int tolerance=50);
+    int readDigital(const uint8_t channel);
     
     // Read raw value.
     int readValue(uint8_t channel);

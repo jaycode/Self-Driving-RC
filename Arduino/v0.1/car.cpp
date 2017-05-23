@@ -26,19 +26,27 @@ void Car::brake() {
 }
 
 void Car::listen() {
-  // We set steer speed as 0 here to allow for two joysticks controlling the steering wheel.
-  steerSpeed_ = 0;
-  if (elevSpeed_ == 0) {
-    listenThro(); // throttling left joystick
-  }
-  if (throSpeed_ == 0) {
-    listenElev(); // throttling right joystick
+  uint8_t newMode = rc_.readDigital(RC_AUX1);
+  listenComputer();
+  if (newMode != curDriveMode_) {
+    sendCommand(CMD_CHANGE_DRIVE_MODE, newMode);
+    curDriveMode_ = newMode;
   }
   // Reads current steering angle, needed in listenAile().
   curSteerFeed_ = steer_.readFeed();
-  listenAile(); // steering right joystick
-  accelerateTo(throSpeed_+elevSpeed_);
-  steer(steerSpeed_);
+  if (curDriveMode_ != DRIVE_MODE_AUTO) {
+    // We set steer speed as 0 here to allow for two joysticks controlling the steering wheel.
+    steerSpeed_ = 0;
+    if (elevSpeed_ == 0) {
+      listenThro(); // throttling left joystick
+    }
+    if (throSpeed_ == 0) {
+      listenElev(); // throttling right joystick
+    }
+    listenAile(); // steering right joystick
+    accelerateTo(throSpeed_+elevSpeed_);
+    steer(steerSpeed_);
+  }
 }
 
 void Car::listenThro() {
@@ -82,7 +90,7 @@ void Car::listenAile() {
 
 void Car::steer(const int steerSpeed) {
   int ss = steerSpeed;
-  ss = log10(fabs(ss))*100;
+  ss = log10(fabs(ss))*110;
   
   if (steerSpeed < 0) {
     ss = -ss;
@@ -115,3 +123,19 @@ void Car::steer(const int steerSpeed) {
     steer_.brake();
   }
 }
+
+void Car::setCurDriveMode(uint8_t value) {
+  curDriveMode_ = value;
+}
+
+
+void Car::listenComputer() {
+  char ccmd = Serial.read();
+  if (ccmd == CCMD_DRIVE_MODE) {
+    sendCommand(CMD_CHANGE_DRIVE_MODE, curDriveMode_);
+  }
+  if (ccmd == CCMD_STEER) {
+    sendCommand(CMD_STEER, curSteerFeed_);
+  }
+}
+

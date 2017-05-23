@@ -32,15 +32,20 @@ class Car {
     // Run this in main loop to listen to user inputs.
     void listen();
 
-  protected:
-    // Listen to Throttle inputs.
-    void listenThro();
-    // Listen to Throttle inputs.
-    void listenElev();
-    // Listen to Throttle inputs.
-    void listenAile();
+    // Setter of curDriveMode_.
+    void setCurDriveMode(uint8_t value);
 
-    // Listen to Aux1 inputs (0, 1, or 2).
+  protected:
+    // Listen to Throttle inputs (left vertical).
+    void listenThro();
+    // Listen to Elev inputs (right vertical)
+    void listenElev();
+    // Listen to Aile inputs (right horizontal).
+    void listenAile();
+    // Aux1 inputs are from D toggle with value of 0, 1, or 2.
+
+    // Listen from computer.
+    void listenComputer();
   private:
     Motor engine_;
     SteeringWheel steer_;
@@ -73,6 +78,8 @@ class Car {
     int steerFeedMin_ = 0;
     int steerFeedMax_ = 1023;
     int steerSlack_ = 1;
+
+    uint8_t curDriveMode_ = 0;
     
 };
 

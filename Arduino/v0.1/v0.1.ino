@@ -1,7 +1,17 @@
+/*
+ * Microcontroller side
+ */
+ 
 #include <stdint.h>
+
+// Look into constants.h and ensure all constants have their counterparts
+// in the computer side.
+#include "constants.h"
+
 #include "motor.h"
 #include "car.h"
 #include "rc.h"
+#include "helpers.h"
 
 uint8_t engineIN1Pin = 9;
 uint8_t engineIN2Pin = 6;
@@ -28,6 +38,9 @@ Car car(engine, steer, rc);
 
 void setup() {
   Serial.begin(9600);
+  uint8_t aux1 = rc.readDigital(RC_AUX1);
+  car.setCurDriveMode(aux1);
+  sendCommand(CMD_CHANGE_DRIVE_MODE, aux1);
 }
 
 void loop() {

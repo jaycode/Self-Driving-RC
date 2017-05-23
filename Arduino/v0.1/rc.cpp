@@ -44,11 +44,7 @@ int RC::readValue(uint8_t channel) {
   return valueRaw;
 }
 
-int RC::readDigital(uint8_t channel, const int *bins/*={1080, 1470, 1870}*/, const int binsSize, const int tolerance) {
-  if (bins) {
-    int bins1[binsSize] = {1080, 1470, 1870};
-    bins = bins1;
-  }
+int RC::readDigital(uint8_t channel, const int bins[]/*={1080, 1470, 1870}*/, const int binsSize, const int tolerance) {
   int valueRaw;
   int value;
   switch(channel) {
@@ -60,6 +56,11 @@ int RC::readDigital(uint8_t channel, const int *bins/*={1080, 1470, 1870}*/, con
                   break;
   }
   return value;
+}
+
+int RC::readDigital(uint8_t channel) {
+  int bins[] = {1080, 1470, 1870};
+  return RC::readDigital(channel, bins);
 }
 
 int RC::digitize(const int value, const int bins[], const int binsSize, const int tolerance) {

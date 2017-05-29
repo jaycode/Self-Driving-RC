@@ -139,4 +139,3 @@ void Car::listenComputer() {
     sendCommand(CMD_STEER, curSteerFeed_);
   }
 }
-

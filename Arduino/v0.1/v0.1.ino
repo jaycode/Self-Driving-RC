@@ -13,13 +13,13 @@
 #include "rc.h"
 #include "helpers.h"
 
-uint8_t engineIN1Pin = 6;  
+uint8_t engineIN1Pin = 6;
 uint8_t engineIN2Pin = 9;
 //uint8_t engineIN3Pin = 10;
 //uint8_t engineIN4Pin = 11;
  
-uint8_t steerIN1Pin = 5; // 1A1
-uint8_t steerIN2Pin = 3; // 1B1
+uint8_t steerIN1Pin = 3; // 1A1
+uint8_t steerIN2Pin = 5; // 1B1
 const uint8_t steerFeedPin = A0;
 
 const uint8_t aux1Pin = 11;

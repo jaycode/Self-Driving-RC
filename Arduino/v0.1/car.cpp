@@ -90,11 +90,12 @@ void Car::listenAile() {
 
 void Car::steer(const int steerSpeed) {
   int ss = steerSpeed;
-  ss = log10(fabs(ss))*110;
+  ss = log10(fabs(ss))*30;
   
   if (steerSpeed < 0) {
     ss = -ss;
   }
+//  Serial.println(curSteerFeed_);
   bool calc1 = curSteerFeed_ > steerFeedMax_-steerSlack_;
   bool calc2 = curSteerFeed_ < steerFeedMin_+steerSlack_;
   if (steerReverse_) {
@@ -138,4 +139,3 @@ void Car::listenComputer() {
     sendCommand(CMD_STEER, curSteerFeed_);
   }
 }
-

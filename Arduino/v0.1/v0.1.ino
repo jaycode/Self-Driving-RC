@@ -13,8 +13,8 @@
 #include "rc.h"
 #include "helpers.h"
 
-uint8_t engineIN1Pin = 9;
-uint8_t engineIN2Pin = 6;
+uint8_t engineIN1Pin = 6;  
+uint8_t engineIN2Pin = 9;
 //uint8_t engineIN3Pin = 10;
 //uint8_t engineIN4Pin = 11;
  

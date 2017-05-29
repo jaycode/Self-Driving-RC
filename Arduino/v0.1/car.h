@@ -69,14 +69,14 @@ class Car {
 
     bool steerReverse_ = false;
     // Maximum steering power, 0 to 255.
-    int steerMax_ = 150;
+    int steerMax_ = 255;
     // Minimum steering power, 0 to 255.
     int steerMin_ = 20;
     int steerSpeed_ = 0;
 
     int curSteerFeed_ = 0;
-    int steerFeedMin_ = 0;
-    int steerFeedMax_ = 1023;
+    int steerFeedMin_ = 2;
+    int steerFeedMax_ = 1022;
     int steerSlack_ = 1;
 
     uint8_t curDriveMode_ = 0;

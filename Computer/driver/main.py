@@ -52,6 +52,10 @@ RECORDED_CSV_PATH = "/home/sku/recorded.csv"
 cams = [cv2.VideoCapture(0)]
 ports = ["/dev/ttyUSB0", "/dev/ttyUSB1"]
 
+# This is the smallest current camera may support.
+cams[0].set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+cams[0].set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+
 # TODO: This is currently throttle value but we will update it once we got
 #       accelerometer.
 set_speed = 230
@@ -156,10 +160,14 @@ def main():
 
 
     parser = argparse.ArgumentParser(description='Remote Driving')
-    parser.add_argument('model', type=str,
+    parser.add_argument('--model', type=str,
     help='Path to model definition json. Model weights should be on the same path.')
     args = parser.parse_args()
-    model = prepare_model(args.model)
+    if args.model:
+        model = prepare_model(args.model)
+    else:
+        print("Warning: No model has been defined. AUTO mode is disabled.\n"+\
+              "Add --model [path to json file] to load a model.")
 
     while True:
         cycle+=1

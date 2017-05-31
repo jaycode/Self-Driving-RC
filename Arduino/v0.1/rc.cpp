@@ -28,17 +28,17 @@ RC::RC(uint8_t pinAux1, uint8_t pinGear, uint8_t pinRudo,
 int RC::readValue(uint8_t channel) {
   int valueRaw;
   switch(channel) {
-    case RC_AUX1: valueRaw = pulseIn (pinAux1_,HIGH);
+    case RC_AUX1: valueRaw = pulseIn (pinAux1_,HIGH, timeout);
                   break;
-    case RC_GEAR: valueRaw = pulseIn (pinGear_,HIGH);
+    case RC_GEAR: valueRaw = pulseIn (pinGear_,HIGH, timeout);
                   break;
-    case RC_RUDO: valueRaw = pulseIn (pinRudo_,HIGH);
+    case RC_RUDO: valueRaw = pulseIn (pinRudo_,HIGH, timeout);
                   break;
-    case RC_ELEV: valueRaw = pulseIn (pinElev_,HIGH);
+    case RC_ELEV: valueRaw = pulseIn (pinElev_,HIGH, timeout);
                   break;
-    case RC_AILE: valueRaw = pulseIn (pinAile_,HIGH);
+    case RC_AILE: valueRaw = pulseIn (pinAile_,HIGH, timeout);
                   break;
-    case RC_THRO: valueRaw = pulseIn (pinThro_,HIGH);
+    case RC_THRO: valueRaw = pulseIn (pinThro_,HIGH, timeout);
                   break;
   }
   return valueRaw;
@@ -48,10 +48,10 @@ int RC::readDigital(uint8_t channel, const int bins[]/*={1080, 1470, 1870}*/, co
   int valueRaw;
   int value;
   switch(channel) {
-    case RC_AUX1: valueRaw = pulseIn (pinAux1_,HIGH);
+    case RC_AUX1: valueRaw = pulseIn (pinAux1_,HIGH, timeout);
                   value = digitize(valueRaw, bins, binsSize, tolerance);
                   break;
-    case RC_GEAR: valueRaw = pulseIn (pinGear_,HIGH);
+    case RC_GEAR: valueRaw = pulseIn (pinGear_,HIGH, timeout);
                   value = digitize(valueRaw, bins, binsSize, tolerance);
                   break;
   }

@@ -15,19 +15,36 @@ const char CMD_BEGIN = 'C';
 const char CMD_STEER = 'S';
 // Change drive mode.
 const char CMD_CHANGE_DRIVE_MODE = 'D';
+// Debug. Send message to computer to display.
+const char CMD_DEBUG = 'd';
+// Request instructions. Pass this along with vehicle info
+// like velocity and orientation. Example command:
+// `iv200;o512;` for velocity 200 and orientation 512.
+const char CMD_REQUEST_INSTRUCTIONS = 'i';
 //----END ARDUINO COMMANDS----
 
 //----BEGIN COMPUTER COMMANDS----
 // Computer asks for wheel feedback.
-const char CCMD_STEER = 'S';
+const char CCMD_REQUEST_STEER = 'S';
 // Computer asks for drive mode.
 const char CCMD_DRIVE_MODE = 'D';
+// Computer steers the wheel.
+const char CCMD_AUTO_STEER = 's';
+// Computer inputs throttle.
+const char CCMD_AUTO_THROTTLE = 't';
 //----END COMPUTER COMMANDS----
 
 //----BEGIN VALUES----
 // Following drive modes are changed by updating AUX1 input.
-const uint8_t DRIVE_MODE_MANUAL = 2;
-const uint8_t DRIVE_MODE_RECORDED = 1;
+// Interestingly, when DX6 RC turned off, it automatically switch
+// to position 1 (i.e. center position), this is why we set position 1
+// as MANUAL MODE (we don't want the car to start recording when
+// remote controller is turned off).
+// 
+// WARNING: Turning the remote controller off will make the feed slower
+//          (depending on the `timeout` setting in RC class).
+const uint8_t DRIVE_MODE_MANUAL = 1; // 1
+const uint8_t DRIVE_MODE_RECORDED = 2;
 const uint8_t DRIVE_MODE_AUTO = 0;
 //----END VALUES----
 

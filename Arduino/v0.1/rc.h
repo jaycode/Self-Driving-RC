@@ -45,6 +45,7 @@ class RC {
     // Bins for digitize
     const int defaultBins_[3] = {1080, 1470, 1870};
     const int defaultBinsSize_ = 3;
+    const unsigned long timeout = 100000; // Timeout in microseconds.
     
     uint8_t pinAux1_;
     uint8_t pinGear_;

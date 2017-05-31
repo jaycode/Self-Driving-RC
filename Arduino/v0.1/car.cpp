@@ -5,18 +5,20 @@ Car::Car(const Motor& inEngine, const SteeringWheel& inSteer, const RC& inRemote
          engine_(inEngine), steer_(inSteer), rc_(inRemoteController) {
 }
 
-void Car::accelerateTo(int speed) {
+void Car::accelerate(int strength) {
+  // Remove this when we got the accelerometer later.
+  curSpeed_ = strength;
   if (engineReverse_) {
     // For when we mixed up the cables.
-    speed = -speed;
+    strength = -strength;
   }
-  if (speed > 0) {
-    engine_.forward(speed);
+  if (strength > 0) {
+    engine_.forward(strength);
   }
-  else if (speed < 0) {
-    engine_.backward(-speed);
+  else if (strength < 0) {
+    engine_.backward(-strength);
   }
-  else if (speed == 0) {
+  else if (strength == 0) {
     engine_.brake();
   }
 }
@@ -34,18 +36,25 @@ void Car::listen() {
   }
   // Reads current steering angle, needed in listenAile().
   curSteerFeed_ = steer_.readFeed();
+
+  // Update to use accelerometer output later.
+//  curSpeed_ = 
+  
   if (curDriveMode_ != DRIVE_MODE_AUTO) {
     // We set steer speed as 0 here to allow for two joysticks controlling the steering wheel.
     steerSpeed_ = 0;
-    if (elevSpeed_ == 0) {
-      listenThro(); // throttling left joystick
-    }
-    if (throSpeed_ == 0) {
-      listenElev(); // throttling right joystick
-    }
+    listenThro(); // throttling left joystick
+    listenElev(); // throttling right joystick
     listenAile(); // steering right joystick
-    accelerateTo(throSpeed_+elevSpeed_);
+    accelerate(throSpeed_+elevSpeed_);
     steer(steerSpeed_);
+  }
+  if (curDriveMode_ == DRIVE_MODE_AUTO) {
+    autoSteer();
+
+    // Pass current velocity and orientation to the computer.
+    String str = String("v"+String(curSpeed_, 4)+";o"+String(curSteerFeed_)+";");
+    sendCommand(CMD_REQUEST_INSTRUCTIONS, str);
   }
 }
 
@@ -71,7 +80,7 @@ void Car::listenElev() {
   if (elev == 0) {
     // Means the remote controller is off.
     elevSpeed_ = 0;
-  }
+  } 
   else {
     elevSpeed_ = normalizeBi(elev, minA_, maxA_, engineMin_, engineMax_);
   }
@@ -95,7 +104,6 @@ void Car::steer(const int steerSpeed) {
   if (steerSpeed < 0) {
     ss = -ss;
   }
-//  Serial.println(curSteerFeed_);
   bool calc1 = curSteerFeed_ > steerFeedMax_-steerSlack_;
   bool calc2 = curSteerFeed_ < steerFeedMin_+steerSlack_;
   if (steerReverse_) {
@@ -125,6 +133,44 @@ void Car::steer(const int steerSpeed) {
   }
 }
 
+void Car::steerTo(int steerPos) {
+  if (steerPos > steerFeedMax_) {
+    steerPos = steerFeedMax_;
+  }
+  else if (steerPos < steerFeedMin_) {
+    steerPos = steerFeedMin_;
+  }
+  targetSteer_ = steerPos;
+}
+
+void Car::autoSteer() {
+  int slack = 30;
+//  Serial.print("feed: ");
+//  Serial.print(curSteerFeed_);
+//  Serial.print(" target: ");
+//  Serial.println(targetSteer_);
+  if (curSteerFeed_ > targetSteer_ - slack &&
+      curSteerFeed_ < targetSteer_ + slack) {
+    steer(0);
+  }
+  else {
+//    Serial.println("adjust");
+    // To avoid oscillation, decrease the speed when closer to position.
+    float speed = steerMax_ * fabs(curSteerFeed_ - targetSteer_) / float(steerFeedMax_ - steerFeedMin_);
+    if (speed < 150) {
+      speed /= 3;
+    }
+//    Serial.println(speed);
+    if (curSteerFeed_ > targetSteer_) {
+      steer(-speed);
+    }
+    else {
+      steer(speed);
+    }
+  }
+  
+}
+
 void Car::setCurDriveMode(uint8_t value) {
   curDriveMode_ = value;
 }
@@ -135,7 +181,27 @@ void Car::listenComputer() {
   if (ccmd == CCMD_DRIVE_MODE) {
     sendCommand(CMD_CHANGE_DRIVE_MODE, curDriveMode_);
   }
-  if (ccmd == CCMD_STEER) {
+  else if (ccmd == CCMD_REQUEST_STEER) {
     sendCommand(CMD_STEER, curSteerFeed_);
+  }
+  else if (ccmd == CCMD_AUTO_STEER && curDriveMode_ == DRIVE_MODE_AUTO) {
+    char pos[4]; // 0 to 1023
+    byte num = Serial.readBytesUntil(';', pos, 4);
+    if (num > 0) {
+      String s = pos;
+      int v = s.toInt();
+//      sendCommand(CMD_DEBUG, v);
+      steerTo(v);
+    }
+  }
+  else if (ccmd == CCMD_AUTO_THROTTLE && curDriveMode_ == DRIVE_MODE_AUTO) {
+    char thro[4]; // -255 to 255
+    byte num = Serial.readBytesUntil(';', thro, 4);
+    if (num > 0) {
+      String s = thro;
+      int v = s.toInt();
+      accelerate(v);
+      sendCommand(CMD_DEBUG, v);
+    }
   }
 }

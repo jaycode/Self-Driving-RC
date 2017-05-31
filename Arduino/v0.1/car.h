@@ -14,20 +14,18 @@ class Car {
   public:
     // Class initialization
     Car(const Motor& inEngine, const SteeringWheel& inSteer, const RC& inRemoteController);
-    // Accelerate the car to a certain speed.
-    void accelerateTo(int speed);
+    // Press the throttle by a certain strength.
+    void accelerate(int strength);
 
     // Steer the car with a certain speed.
     // Positive and negative values for opposite directions.
     void steer(const int steerSpeed);
 
+    // Steer the car to a position.
+    void steerTo(const int steerPos);
+
     // Brake the car.
     void brake();
-
-    // Getter for steerSpeed_
-    uint8_t getSteerSpeed();
-    // Setter for steerSpeed_
-    void setSteerSpeed();
 
     // Run this in main loop to listen to user inputs.
     void listen();
@@ -46,6 +44,10 @@ class Car {
 
     // Listen from computer.
     void listenComputer();
+
+    // In Auto drive mode, adjust the steering wheel until it matches
+    // targetSteer_.
+    void autoSteer();
   private:
     Motor engine_;
     SteeringWheel steer_;
@@ -75,11 +77,19 @@ class Car {
     int steerSpeed_ = 0;
 
     int curSteerFeed_ = 0;
-    int steerFeedMin_ = 255;
-    int steerFeedMax_ = 768;
+    int steerFeedMin_ = 49;
+    int steerFeedMax_ = 973;
     int steerSlack_ = 1;
 
     uint8_t curDriveMode_ = 0;
+
+    // In Auto mode, if curSteerFeed != targetSteer_,
+    // adjust the steering wheel.
+    // This is required for `steerTo` method.
+    int targetSteer_ = 512;
+
+    // Currently throttle strength, replace when accelerometer installed.
+    float curSpeed_ = 0.0;
     
 };
 

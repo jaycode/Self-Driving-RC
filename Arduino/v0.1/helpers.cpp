@@ -1,6 +1,5 @@
 #include "helpers.h"
 #include "constants.h"
-#include <Arduino.h>
 
 float normalize(float value, float minA, float maxA, float minB, float maxB) {
   /*
@@ -48,8 +47,34 @@ void sendCommand(char cmd, int val) {
   Serial.println(val);
 }
 
+void sendCommand(char cmd, unsigned int val) {
+  Serial.print(CMD_BEGIN);
+  Serial.print(cmd);
+  Serial.println(val);
+}
+
 void sendCommand(char cmd, uint8_t val) {
   Serial.print(CMD_BEGIN);
   Serial.print(cmd);
   Serial.println(val);
 }
+
+void sendCommand(char cmd, char val[]) {
+  Serial.print(CMD_BEGIN);
+  Serial.print(cmd);
+  Serial.println(val);
+}
+
+void sendCommand(char cmd, String val) {
+  Serial.print(CMD_BEGIN);
+  Serial.print(cmd);
+  Serial.println(val);
+}
+
+unsigned int chars2int(char b[]) {
+  return int((unsigned char)(b[0]) << 24 |
+              (unsigned char)(b[1]) << 16 |
+              (unsigned char)(b[2]) << 8 |
+              (unsigned char)(b[3]));
+}
+

@@ -38,6 +38,7 @@ Car car(engine, steer, rc);
 
 void setup() {
   Serial.begin(9600);
+//  Serial.setTimeout(200);
   uint8_t aux1 = rc.readDigital(RC_AUX1);
   car.setCurDriveMode(aux1);
   sendCommand(CMD_CHANGE_DRIVE_MODE, aux1);

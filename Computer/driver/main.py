@@ -9,7 +9,7 @@ from keras.models import load_model
 
 
 CMD_BEGIN = b'C'
-CMD_STEER = b'S'
+CMD_STATUS = b'S'
 CMD_CHANGE_DRIVE_MODE = b'D'
 CMD_AUTO = b'A'
 CMD_DEBUG = b'd'
@@ -17,7 +17,7 @@ CMD_DEBUG = b'd'
 CMD_REQUEST_INSTRUCTIONS = b'i';
 
 
-CCMD_REQUEST_STEER = b'S'
+CCMD_REQUEST_STATUS = b'S'
 CCMD_DRIVE_MODE = b'D'
 CCMD_AUTO_STEER = b's'
 CCMD_AUTO_THROTTLE = b't'
@@ -33,15 +33,14 @@ CCMD_AUTO_THROTTLE = b't'
 # First, the computer asks for steering value, it does so by sending a
 # character 'S' (CCMD_REQUEST_STEER).
 # When the microcontroller reads this, it sends back a char 'C', followed
-# by 'S' (CMD_STEER). Computer then switches to MODE_LISTEN_STEER_VAL.
+# by 'S' (CMD_STATUS). Computer then switches to MODE_LISTEN_STATUS.
 # And finally, the microcontroller sends the number of steering value.
 # accepted by the computer.
 MODE_NONE = 0
 MODE_LISTEN_CMD = 1
-MODE_LISTEN_STEER_VAL = 2
+MODE_LISTEN_STATUS = 2
 MODE_LISTEN_DRIVE_MODE = 3
 MODE_LISTEN_DEBUG = 4
-MODE_LISTEN_STATUS = 5
 
 # The following values need to be the same with the ones in the microcontroller.
 DRIVE_MODE_MANUAL = 1
@@ -112,6 +111,18 @@ def prepare_model(model_path):
 
     return load_model(model_path)
 
+def listen_status(port):
+    s_cmd = ''
+    speed = 0.0
+    steer = 512
+    while s_cmd != b"\n":
+        s_cmd = port.read(1)
+        if s_cmd == b'v':
+            speed = float(read_bytes_until(port, b';', 8))
+        elif s_cmd == b'o':
+            steer = int(read_bytes_until(port, b';', 4))
+    return (steer, speed)
+
 def read_bytes_until(port, lchar, liter):
     i = 0
     value = ""
@@ -123,6 +134,7 @@ def read_bytes_until(port, lchar, liter):
     return value
 
 def main():
+    os.makedirs(RECORDED_IMG_PATH, exist_ok=True)
     port = choose_port(ports)
     mode = MODE_NONE
 
@@ -155,30 +167,8 @@ def main():
             cycle = 0;
         if drive_mode == DRIVE_MODE_RECORDED:
             if cycle%1 == 0:
-                # Computer asks for steering wheel value on RECORDED mode,
-                # and it does so every cycle.
-                port.write(CCMD_REQUEST_STEER)
-        elif drive_mode == DRIVE_MODE_AUTO:
-            if MODE_LISTEN_STATUS:
-                s_cmd = ''
-                velocity = 0.0
-                orientation = 512
-                while s_cmd != b"\n":
-                    s_cmd = port.read(1)
-                    if s_cmd == b'v':
-                        velocity = float(read_bytes_until(port, b';', 8))
-                    elif s_cmd == b'o':
-                        orientation = int(read_bytes_until(port, b';', 4))
-
-                print("Car status: v: {}o: {}".format(velocity, orientation))
-
-                ret, frame = cams[0].read()
-                image_array = np.asarray(frame)
-                throttle = controller.update(velocity)
-                steering = model.predict(image_array[None, :, :, :], batch_size=1)
-
-                port.write("{}{};".format(CCMD_AUTO_STEER, str(steering)))
-                port.write("{}{};".format(CCMD_AUTO_THROTTLE, str(throttle)))
+                # Computer asks for steering wheel value on RECORDED mode.
+                port.write(CCMD_REQUEST_STATUS)
 
         if mode == MODE_NONE:
             cmd = port.read(1)
@@ -187,52 +177,64 @@ def main():
         elif mode == MODE_LISTEN_CMD:
             cmd = port.read(1)
             # Add here whenever a new command is added.
-            if cmd == CMD_STEER:
-                mode = MODE_LISTEN_STEER_VAL
+            if cmd == CMD_STATUS or cmd == CMD_REQUEST_INSTRUCTIONS:
+                mode = MODE_LISTEN_STATUS
             elif cmd == CMD_CHANGE_DRIVE_MODE:
                 mode = MODE_LISTEN_DRIVE_MODE
             elif cmd == CMD_DEBUG:
                 mode = MODE_LISTEN_DEBUG
-            elif cmd == CMD_REQUEST_INSTRUCTIONS:
-                mode = MODE_LISTEN_STATUS
-        elif mode == MODE_LISTEN_STEER_VAL:
-            val = port.read(1)
-            if val != b"\n":
-                buff += str(val, 'utf-8')
-            else:
-                cur_steer = int(buff)
-
+        elif mode == MODE_LISTEN_STATUS:
+            speed, steer = listen_status(port)
+            print("steer: {} speed: {}".format(steer, speed))
+            
+            if drive_mode == DRIVE_MODE_RECORDED:
                 # Get timestamp and steer information.
                 tstamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S.%f")
-                print("{} steer: {}".format(tstamp, cur_steer))
-                
-                if drive_mode == DRIVE_MODE_RECORDED:
-                    # Record this frame.
-                    ret, frame = cams[0].read()
+                print("{}".format(tstamp))
 
-                    # Create image path.
-                    filename = "{}.jpg".format(tstamp)
-                    path = os.path.join(RECORDED_IMG_PATH, filename)
-                    
-                    # Save image
-                    cv2.imwrite(path,frame)
+                # Record this frame.
+                ret, frame = cams[0].read()
 
-                    # Append to training data.
-                    if not os.path.isfile(RECORDED_CSV_PATH):
-                        fd = open(RECORDED_CSV_PATH, 'w')
-                        head = "steer, speed, filename\n"
-                        fd.write(head)
-                    else:
-                        fd = open(RECORDED_CSV_PATH,'a')
-                    row = "{}, {}, {}\n".format(cur_steer, 0, filename)
-                    fd.write(row)
-                    fd.close()
+                # Create image path.
+                filename = "{}.jpg".format(tstamp)
+                path = os.path.join(RECORDED_IMG_PATH, filename)
 
-                # Reset buffer
-                buff = ''
+                # Save image
+                cv2.imwrite(path,frame)
 
-                # Reset mode back to NONE
-                mode = MODE_NONE
+                # Append to training data.
+                if not os.path.isfile(RECORDED_CSV_PATH):
+                    fd = open(RECORDED_CSV_PATH, 'w')
+                    head = "steer, speed, filename\n"
+                    fd.write(head)
+                else:
+                    fd = open(RECORDED_CSV_PATH,'a')
+                row = "{}, {}, {}\n".format(steer, speed, filename)
+                fd.write(row)
+                fd.close()
+            elif drive_mode == DRIVE_MODE_AUTO:
+                ret, frame = cams[0].read()
+                image_array = np.asarray(frame)
+                throttle = controller.update(speed)
+                msg = None
+                try:
+                    new_steer = model.predict(image_array[None, :, :, :], batch_size=1)
+                except TypeError as err:
+                    msg = "TypeError: {}".format(err)
+                    print(msg)
+                except ValueError as err:
+                    msg = "TypeError: {}".format(err)
+                    print(msg)
+                if msg:
+                    with open('error.log','a') as f:
+                        f.write(msg)
+                        f.write("\n")
+                else:
+                    port.write("{}{};".format(CCMD_AUTO_STEER, str(new_steer)))
+                    port.write("{}{};".format(CCMD_AUTO_THROTTLE, str(throttle)))
+
+            mode = MODE_NONE
+
         elif mode == MODE_LISTEN_DRIVE_MODE:
             val = int(port.read(1))
             if val == DRIVE_MODE_RECORDED:

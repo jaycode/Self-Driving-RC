@@ -53,7 +53,7 @@ void Car::listen() {
     autoSteer();
 
     // Pass current velocity and orientation to the computer.
-    String str = String("v"+String(curSpeed_, 4)+";o"+String(curSteerFeed_)+";");
+    String str = getStatus();
     sendCommand(CMD_REQUEST_INSTRUCTIONS, str);
   }
 }
@@ -175,14 +175,18 @@ void Car::setCurDriveMode(uint8_t value) {
   curDriveMode_ = value;
 }
 
+String Car::getStatus() {
+  String str = String("v"+String(curSpeed_, 4)+";o"+String(curSteerFeed_)+";");
+  return str;
+}
 
 void Car::listenComputer() {
   char ccmd = Serial.read();
   if (ccmd == CCMD_DRIVE_MODE) {
     sendCommand(CMD_CHANGE_DRIVE_MODE, curDriveMode_);
   }
-  else if (ccmd == CCMD_REQUEST_STEER) {
-    sendCommand(CMD_STEER, curSteerFeed_);
+  else if (ccmd == CCMD_REQUEST_STATUS) {
+    sendCommand(CMD_STATUS, getStatus());
   }
   else if (ccmd == CCMD_AUTO_STEER && curDriveMode_ == DRIVE_MODE_AUTO) {
     char pos[4]; // 0 to 1023

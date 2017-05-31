@@ -11,8 +11,8 @@
 //----BEGIN ARDUINO COMMANDS----
 // Begin listening to the next command.
 const char CMD_BEGIN = 'C';
-// Steering wheel feedback.
-const char CMD_STEER = 'S';
+// Steering wheel and speed feedback.
+const char CMD_STATUS = 'S';
 // Change drive mode.
 const char CMD_CHANGE_DRIVE_MODE = 'D';
 // Debug. Send message to computer to display.
@@ -25,7 +25,7 @@ const char CMD_REQUEST_INSTRUCTIONS = 'i';
 
 //----BEGIN COMPUTER COMMANDS----
 // Computer asks for wheel feedback.
-const char CCMD_REQUEST_STEER = 'S';
+const char CCMD_REQUEST_STATUS = 'S';
 // Computer asks for drive mode.
 const char CCMD_DRIVE_MODE = 'D';
 // Computer steers the wheel.

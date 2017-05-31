@@ -48,6 +48,10 @@ class Car {
     // In Auto drive mode, adjust the steering wheel until it matches
     // targetSteer_.
     void autoSteer();
+
+    // Return current car status.
+    String getStatus();
+    
   private:
     Motor engine_;
     SteeringWheel steer_;

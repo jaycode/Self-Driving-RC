@@ -2,21 +2,24 @@ import csv
 import numpy as np
 import cv2
 
-target_shape = (80, 40)  # original size 320, 160
+target_shape = (64, 48)  # original size 640, 480
 nb_cams = 1
+
+# Angle to shift from left and right cameras.
 angle_shift = 0.1
+steer_min = 
 
 
 def load_csv(directory=''):
     # data_dirs = ['dataset-1', 'dataset-2', 'dataset-3', 'dataset-4', 'dataset-5', 'dataset-water', 'data-udacity']
-    data_dirs = ['/home/sku']
+    data_dirs = ['C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-05-28']
 
     global csv_rows_train, csv_rows_val, csv_rows_test
     csv_rows = []
 
     for dr in data_dirs:
-        log_filename = dr + '/recorded.csv'
-        img_path = dr + '/recorded/'
+        log_filename = dr + '\\recorded.csv'
+        img_path = dr + '\\recorded-2017-05-28\\'
 
         with open(log_filename, 'r') as csvfile:
             logreader = csv.reader(csvfile)

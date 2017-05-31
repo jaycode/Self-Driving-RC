@@ -6,7 +6,20 @@ import os
 import argparse
 import h5py
 from keras.models import load_model
+import cv2
 
+RECORDED_IMG_PATH = "/home/sku/recorded"
+RECORDED_CSV_PATH = "/home/sku/recorded.csv"
+cams = [cv2.VideoCapture(0)]
+img_width = 64
+img_height = 48
+
+# Ports to try to look for microcontroller.
+ports = ["/dev/ttyUSB0", "/dev/ttyUSB1"]
+
+# TODO: This is currently throttle value but we will update it once we got
+#       accelerometer.
+set_speed = 230
 
 CMD_BEGIN = b'C'
 CMD_STATUS = b'S'
@@ -46,15 +59,6 @@ MODE_LISTEN_DEBUG = 4
 DRIVE_MODE_MANUAL = 1
 DRIVE_MODE_RECORDED = 2
 DRIVE_MODE_AUTO = 0
-
-RECORDED_IMG_PATH = "/home/sku/recorded"
-RECORDED_CSV_PATH = "/home/sku/recorded.csv"
-cams = [cv2.VideoCapture(0)]
-ports = ["/dev/ttyUSB0", "/dev/ttyUSB1"]
-
-# TODO: This is currently throttle value but we will update it once we got
-#       accelerometer.
-set_speed = 230
 
 def choose_port(ports):
     port_connected = False

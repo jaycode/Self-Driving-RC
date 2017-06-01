@@ -6,20 +6,7 @@ import os
 import argparse
 import h5py
 from keras.models import load_model
-import cv2
 
-RECORDED_IMG_PATH = "/home/sku/recorded"
-RECORDED_CSV_PATH = "/home/sku/recorded.csv"
-cams = [cv2.VideoCapture(0)]
-img_width = 64
-img_height = 48
-
-# Ports to try to look for microcontroller.
-ports = ["/dev/ttyUSB0", "/dev/ttyUSB1"]
-
-# TODO: This is currently throttle value but we will update it once we got
-#       accelerometer.
-set_speed = 230
 
 CMD_BEGIN = b'C'
 CMD_STATUS = b'S'
@@ -59,6 +46,19 @@ MODE_LISTEN_DEBUG = 4
 DRIVE_MODE_MANUAL = 1
 DRIVE_MODE_RECORDED = 2
 DRIVE_MODE_AUTO = 0
+
+RECORDED_IMG_PATH = "/home/sku/recorded"
+RECORDED_CSV_PATH = "/home/sku/recorded.csv"
+cams = [cv2.VideoCapture(0)]
+ports = ["/dev/ttyUSB0", "/dev/ttyUSB1"]
+
+# This is the smallest current camera may support.
+cams[0].set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+cams[0].set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+
+# TODO: This is currently throttle value but we will update it once we got
+#       accelerometer.
+set_speed = 230
 
 def choose_port(ports):
     port_connected = False
@@ -160,10 +160,14 @@ def main():
 
 
     parser = argparse.ArgumentParser(description='Remote Driving')
-    parser.add_argument('model', type=str,
+    parser.add_argument('--model', type=str,
     help='Path to model definition json. Model weights should be on the same path.')
     args = parser.parse_args()
-    model = prepare_model(args.model)
+    if args.model:
+        model = prepare_model(args.model)
+    else:
+        print("Warning: No model has been defined. AUTO mode is disabled.\n"+\
+              "Add --model [path to json file] to load a model.")
 
     while True:
         cycle+=1
@@ -269,4 +273,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

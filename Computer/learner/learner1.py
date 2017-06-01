@@ -4,8 +4,8 @@ import cv2
 
 # Make sure the target shape is the same with the one in driver/main.py
 # i.e. look for cams setup with variable CAP_PROP_FRAME_WIDTH and CAP_PROP_FRAME_HEIGHT.
-# target_shape = (320, 240)  # original size 640, 480
-target_shape = (640, 480)  # original size 640, 480
+target_shape = (320, 240)  # original size 640, 480
+
 nb_cams = 1
 
 # Angle to shift from left and right cameras.

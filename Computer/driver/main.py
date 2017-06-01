@@ -123,8 +123,10 @@ def listen_status(port):
         s_cmd = port.read(1)
         if s_cmd == b'v':
             speed = float(read_bytes_until(port, b';', 8))
+            print("speed is", speed)
         elif s_cmd == b'o':
             steer = int(read_bytes_until(port, b';', 4))
+            print("steer is", steer)
     return (steer, speed)
 
 def read_bytes_until(port, lchar, liter):
@@ -192,7 +194,7 @@ def main():
             elif cmd == CMD_DEBUG:
                 mode = MODE_LISTEN_DEBUG
         elif mode == MODE_LISTEN_STATUS:
-            speed, steer = listen_status(port)
+            steer, speed = listen_status(port)
             print("steer: {} speed: {}".format(steer, speed))
             
             if drive_mode == DRIVE_MODE_RECORDED:
@@ -232,6 +234,10 @@ def main():
                     print(msg)
                 except ValueError as err:
                     msg = "TypeError: {}".format(err)
+                    print(msg)
+                except UnboundLocalError as err:
+                    # No model since auto mode was disabled.
+                    msg = "AUTO mode was disabled since no model was initialized."
                     print(msg)
                 if msg:
                     with open('error.log','a') as f:

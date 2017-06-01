@@ -58,14 +58,16 @@ cams[0].set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
 
 # TODO: This is currently throttle value but we will update it once we got
 #       accelerometer.
-set_speed = 230
+set_speed = 100
+
+MIN_THROTTLE = 50
 
 def choose_port(ports):
     port_connected = False
     port_idx = 0
     while not port_connected:
         try:
-            port = serial.Serial(ports[port_idx], baudrate=9600, timeout=0.1)
+            port = serial.Serial(ports[port_idx], baudrate=9600, timeout=None)
             port_connected = True
             print("Port {} connected!\n".format(ports[port_idx]))
         except:
@@ -123,10 +125,14 @@ def listen_status(port):
         s_cmd = port.read(1)
         if s_cmd == b'v':
             speed = float(read_bytes_until(port, b';', 8))
-            print("speed is", speed)
         elif s_cmd == b'o':
-            steer = int(read_bytes_until(port, b';', 4))
-            print("steer is", steer)
+            steer = int(read_bytes_until(port, b';', 5))
+
+    # There will be some buffer leftover when user changes the drive mode,
+    # that is why this assert is commented out. We keep it here for
+    # debugging.
+    # waiting = port.in_waiting
+    # assert (waiting == 0), "Buffer leftover in listen_status: {}".format(port.read(waiting))
     return (steer, speed)
 
 def read_bytes_until(port, lchar, liter):
@@ -174,16 +180,21 @@ def main():
     while True:
         cycle+=1
         if cycle == 100000:
-            cycle = 0;
-        if drive_mode == DRIVE_MODE_RECORDED:
-            if cycle%1 == 0:
-                # Computer asks for steering wheel value on RECORDED mode.
-                port.write(CCMD_REQUEST_STATUS)
+            cycle = 0
 
         if mode == MODE_NONE:
-            cmd = port.read(1)
-            if cmd == CMD_BEGIN:
-                mode = MODE_LISTEN_CMD
+            if port.in_waiting > 0:
+                cmd = port.read(1)
+                if cmd == CMD_BEGIN:
+                    mode = MODE_LISTEN_CMD
+            else:
+                # All communication should be initiated by the computer, since
+                # otherwise there will be some data left in the buffer that would
+                # cause in lags. That is why we send request to gain information
+                # here.
+                if drive_mode == DRIVE_MODE_RECORDED or drive_mode == DRIVE_MODE_AUTO:
+                    port.write(CCMD_REQUEST_STATUS)
+                    mode = MODE_LISTEN_STATUS
         elif mode == MODE_LISTEN_CMD:
             cmd = port.read(1)
             # Add here whenever a new command is added.
@@ -193,15 +204,13 @@ def main():
                 mode = MODE_LISTEN_DRIVE_MODE
             elif cmd == CMD_DEBUG:
                 mode = MODE_LISTEN_DEBUG
-        elif mode == MODE_LISTEN_STATUS:
+        if mode == MODE_LISTEN_STATUS:
+            # Get timestamp and steer information.
             steer, speed = listen_status(port)
-            print("steer: {} speed: {}".format(steer, speed))
-            
-            if drive_mode == DRIVE_MODE_RECORDED:
-                # Get timestamp and steer information.
-                tstamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S.%f")
-                print("{}".format(tstamp))
+            tstamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S.%f")
+            print("steer: {} speed: {} ({})".format(steer, speed, tstamp))
 
+            if drive_mode == DRIVE_MODE_RECORDED:
                 # Record this frame.
                 ret, frame = cams[0].read()
 
@@ -210,7 +219,7 @@ def main():
                 path = os.path.join(RECORDED_IMG_PATH, filename)
 
                 # Save image
-                cv2.imwrite(path,frame)
+                cv2.imwrite(path, frame)
 
                 # Append to training data.
                 if not os.path.isfile(RECORDED_CSV_PATH):
@@ -222,13 +231,16 @@ def main():
                 row = "{}, {}, {}\n".format(filename, steer, speed)
                 fd.write(row)
                 fd.close()
+
             elif drive_mode == DRIVE_MODE_AUTO:
                 ret, frame = cams[0].read()
                 image_array = np.asarray(frame)
                 throttle = controller.update(speed)
                 msg = None
                 try:
-                    new_steer = model.predict(image_array[None, :, :, :], batch_size=1)
+                    prediction = model.predict(\
+                        image_array[None, :, :, :], batch_size=1)
+                    new_steer = prediction[0][0]
                 except TypeError as err:
                     msg = "TypeError: {}".format(err)
                     print(msg)
@@ -244,9 +256,11 @@ def main():
                         f.write(msg)
                         f.write("\n")
                 else:
-                    port.write("{}{};".format(CCMD_AUTO_STEER, str(new_steer)))
-                    port.write("{}{};".format(CCMD_AUTO_THROTTLE, str(throttle)))
-
+                    print("throttle:", throttle)
+                    port.write(bytearray("{}{};".format(\
+                        CCMD_AUTO_STEER.decode(), str(new_steer)), 'utf-8'))
+                    port.write(bytearray("{}{};".format(\
+                        CCMD_AUTO_THROTTLE.decode(), str(throttle)), 'utf-8'))
             mode = MODE_NONE
 
         elif mode == MODE_LISTEN_DRIVE_MODE:
@@ -279,3 +293,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

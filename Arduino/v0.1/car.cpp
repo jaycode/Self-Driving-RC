@@ -29,6 +29,8 @@ void Car::brake() {
 
 void Car::listen() {
   uint8_t newMode = rc_.readDigital(RC_AUX1);
+
+  // Communication happens in one direction, from computer to microcontroller.
   listenComputer();
   if (newMode != curDriveMode_) {
     sendCommand(CMD_CHANGE_DRIVE_MODE, newMode);
@@ -49,13 +51,10 @@ void Car::listen() {
     accelerate(throSpeed_+elevSpeed_);
     steer(steerSpeed_);
   }
-  if (curDriveMode_ == DRIVE_MODE_AUTO) {
+  else if (curDriveMode_ == DRIVE_MODE_AUTO) {
     autoSteer();
-
-    // Pass current velocity and orientation to the computer.
-    String str = getStatus();
-    sendCommand(CMD_REQUEST_INSTRUCTIONS, str);
   }
+
 }
 
 void Car::listenThro() {

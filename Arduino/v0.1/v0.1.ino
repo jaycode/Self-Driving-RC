@@ -30,7 +30,7 @@ const uint8_t ailePin = 4;
 const uint8_t throPin = 2;
 
 //Motor engine(engineIN1Pin, engineIN2Pin, engineIN3Pin, engineIN4Pin);
-Motor engine(engineIN1Pin, engineIN2Pin, NULL, NULL);
+Motor engine(engineIN1Pin, engineIN2Pin, 0, 0);
 SteeringWheel steer(steerIN1Pin, steerIN2Pin, steerFeedPin);
 RC rc(aux1Pin, gearPin, rudoPin, elevPin, ailePin, throPin);
   

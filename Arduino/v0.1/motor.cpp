@@ -57,7 +57,7 @@ void Motor::brake()
 
 SteeringWheel::SteeringWheel(
   uint8_t pinIN1, uint8_t pinIN2, uint8_t pinFeed) : 
-  Motor(pinIN1, pinIN2, NULL, NULL), pinFeed_(pinFeed){
+  Motor(pinIN1, pinIN2, 0, 0), pinFeed_(pinFeed){
   pinMode(pinFeed_, INPUT);
 }
 

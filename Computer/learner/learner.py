@@ -42,6 +42,14 @@ with open(DATA_FILE) as csvfile:
 
 train_samples, validation_samples = train_test_split(lines, test_size=0.2)
 
+def normalize_data(data):
+    #X_train = X_train.astype(np.float32)
+    data = ((data - data.min())/(np.max(data) - np.min(data)))
+    # STOP: Do not change the tests below. Your implementation should pass these tests.
+    assert(round(np.mean(data)) == 0), "The mean of the input data is: %f" % np.mean(X_train)
+    assert(np.min(data) == 0.0 and np.max(data) == 1.0), "The range of the input data is: %.1f to %.1f" % (np.min(X_train), np.max(X_train))
+    return data
+    
 def generator(samples, batch_size=32):
     steer_range = STEER_MAX - STEER_MIN
     steer_mid = (steer_range/2) + STEER_MIN
@@ -69,7 +77,8 @@ def generator(samples, batch_size=32):
                     imgpath = os.path.join(IMG_DIR, os.path.basename(filename))
                     image = cv2.imread(imgpath)
                     # Convert to YUV
-                    image = cv2.cvtColor(image, cv2.COLOR_BGR2YCrCb)
+                    image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
+                    image = 
                     images.append(image)
 
                     steer_from_mid = float(batch_sample[STEER_FIELD_ID])-steer_mid
@@ -79,12 +88,12 @@ def generator(samples, batch_size=32):
                     # Flip
                     image_flipped = np.fliplr(image)
                     # Convert to YUV
-                    image_flipped = cv2.cvtColor(image_flipped, cv2.COLOR_BGR2YCrCb)
+                    image_flipped = cv2.cvtColor(image_flipped, cv2.COLOR_BGR2YUV)
                     images.append(image_flipped)
                     measurement_flipped = steer_mid - steer_from_mid - c
                     measurements.append(int(measurement_flipped))
 
-            X_train = np.array(images)
+            X_train = normalize_data(np.array(images).astype('float'))
             y_train = np.array(measurements)
             yield shuffle(X_train, y_train)
 
@@ -96,11 +105,8 @@ if os.path.exists(MODEL_H5):
 else:
     # Model building
     model = Sequential()
-    # YUV Normalization
-    model.add(Lambda(
-        lambda x: (x - 16) / (np.matrix([235.0, 240.0, 240.0]) - 16) - 0.5,
-        input_shape=(TARGET_HEIGHT, TARGET_WIDTH, 3)))
-    model.add(Cropping2D(cropping=(())))
+    model.add(Cropping2D(cropping=((70,0), (0,0))),
+        input_shape=(TARGET_HEIGHT, TARGET_WIDTH, 3))
     # Dropout setup reference:
     # http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
     # Page 1938:

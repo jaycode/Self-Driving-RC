@@ -214,6 +214,10 @@ def main():
                 # Record this frame.
                 ret, frame = cams[0].read()
 
+                # Crop frame. Update `learner/learner.py` as well.
+                # See `utilities/preprocess.py` to see how it may look.
+                frame = frame[70:220,:,:]
+
                 # Create image path.
                 filename = "{}.jpg".format(tstamp)
                 path = os.path.join(RECORDED_IMG_PATH, filename)

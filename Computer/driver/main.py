@@ -213,11 +213,11 @@ def main():
                 # Append to training data.
                 if not os.path.isfile(RECORDED_CSV_PATH):
                     fd = open(RECORDED_CSV_PATH, 'w')
-                    head = "steer, speed, filename\n"
+                    head = "filename, steer, speed\n"
                     fd.write(head)
                 else:
                     fd = open(RECORDED_CSV_PATH,'a')
-                row = "{}, {}, {}\n".format(steer, speed, filename)
+                row = "{}, {}, {}\n".format(filename, steer, speed)
                 fd.write(row)
                 fd.close()
             elif drive_mode == DRIVE_MODE_AUTO:

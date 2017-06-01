@@ -23,24 +23,28 @@ STEER_MAX = 993
 TARGET_WIDTH = 320
 TARGET_HEIGHT = 240
 
-IMG_DIR = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-05-28\\recorded"
-DATA_FILE = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-05-28\\recorded.csv"
+IMG_DIR = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-05-31\\recorded"
+DATA_FILE = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-05-31\\recorded.csv"
 
+STEER_FIELD_ID = 1
+SPEED_FIELD_ID = 2
 
 # Data Preparation
-MODEL_H5 = os.path.abspath('../models/model.h5')
+MODEL_H5 = os.path.abspath('C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-05-31\\model.h5')
 print(MODEL_H5)
 
 lines = []
 with open(DATA_FILE) as csvfile:
     reader = csv.reader(csvfile)
+    next(reader, None)
     for line in reader:
         lines.append(line)
 
 train_samples, validation_samples = train_test_split(lines, test_size=0.2)
 
-def generator(samples, batch_size=32, steer_min=STEER_MIN, steer_max=STEER_MAX):
-    steer_range = steer_max - steer_min
+def generator(samples, batch_size=32):
+    steer_range = STEER_MAX - STEER_MIN
+    steer_mid = (steer_range/2) + STEER_MIN
 
     num_samples = len(samples)
     while 1:
@@ -62,21 +66,23 @@ def generator(samples, batch_size=32, steer_min=STEER_MIN, steer_max=STEER_MAX):
                     # field number i contains the image.
                     source_path = batch_sample[i]
                     filename = source_path.split('/')[-1]
-                    current_path = os.path.join(IMG_DIR, os.path.basename(filename))
-                    image = cv2.imread(source_path)
+                    imgpath = os.path.join(IMG_DIR, os.path.basename(filename))
+                    image = cv2.imread(imgpath)
                     # Convert to YUV
                     image = cv2.cvtColor(image, cv2.COLOR_BGR2YCrCb)
                     images.append(image)
-                    measurement = float(batch_sample[3]) + c
-                    measurements.append(measurement)
+
+                    steer_from_mid = float(batch_sample[STEER_FIELD_ID])-steer_mid
+                    measurement = steer_mid + steer_from_mid + c
+                    measurements.append(int(measurement))
 
                     # Flip
                     image_flipped = np.fliplr(image)
                     # Convert to YUV
                     image_flipped = cv2.cvtColor(image_flipped, cv2.COLOR_BGR2YCrCb)
                     images.append(image_flipped)
-                    measurement_flipped = -measurement
-                    measurements.append(measurement_flipped)
+                    measurement_flipped = steer_mid - steer_from_mid - c
+                    measurements.append(int(measurement_flipped))
 
             X_train = np.array(images)
             y_train = np.array(measurements)
@@ -94,7 +100,7 @@ else:
     model.add(Lambda(
         lambda x: (x - 16) / (np.matrix([235.0, 240.0, 240.0]) - 16) - 0.5,
         input_shape=(TARGET_HEIGHT, TARGET_WIDTH, 3)))
-
+    model.add(Cropping2D(cropping=(())))
     # Dropout setup reference:
     # http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
     # Page 1938:
@@ -118,6 +124,7 @@ else:
     model.add(Dense(50))
     model.add(Dense(10))
     model.add(Dense(1))
+    model.summary()
 
 optimizer = Adam()
 model.compile(loss='mse', optimizer=optimizer)
@@ -134,4 +141,5 @@ plt.title('model mean squared error loss')
 plt.ylabel('mean squared error loss')
 plt.xlabel('epoch')
 plt.legend(['training set', 'validation set'], loc='upper right')
+plt.savefig("{}.result.png".format(MODEL_H5), bbox_inches='tight')
 plt.show()

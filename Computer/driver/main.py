@@ -150,7 +150,6 @@ def read_bytes_until(port, lchar, liter):
     return value
 
 def main():
-    os.makedirs(RECORDED_IMG_PATH, exist_ok=True)
     port = choose_port(ports)
     mode = MODE_NONE
 
@@ -225,6 +224,10 @@ def main():
                 # Create image path.
                 filename = "{}.jpg".format(tstamp)
                 path = os.path.join(RECORDED_IMG_PATH, filename)
+
+                # We put the makedirs here to ensure directory is created
+                # when re-recording without having to reset the script.
+                os.makedirs(RECORDED_IMG_PATH, exist_ok=True)
 
                 # Save image
                 cv2.imwrite(path, frame)

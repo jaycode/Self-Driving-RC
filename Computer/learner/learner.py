@@ -8,8 +8,9 @@ import sklearn
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 
+import keras
 from keras.models import Sequential, load_model
-from keras.layers import Flatten, Dense, Lambda, Cropping2D
+from keras.layers import Flatten, Dense, Lambda, Cropping1D, Cropping2D
 from keras.layers import Conv2D, Dropout
 from keras.layers.pooling import MaxPooling2D
 from keras.optimizers import Adam
@@ -22,15 +23,20 @@ STEER_MAX = 993
 # i.e. look for cams setup with variable CAP_PROP_FRAME_WIDTH and CAP_PROP_FRAME_HEIGHT.
 TARGET_WIDTH = 320
 TARGET_HEIGHT = 240
+TARGET_CROP = ((70, 20), (0, 0))
 
-IMG_DIR = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-05-31\\recorded"
-DATA_FILE = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-05-31\\recorded.csv"
+# Lower batch size and higher epochs = slower, but lower validation error
+BATCH_SIZE=4
+EPOCHS=20
+
+IMG_DIR = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01\\recorded"
+DATA_FILE = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01\\recorded.csv"
 
 STEER_FIELD_ID = 1
 SPEED_FIELD_ID = 2
 
 # Data Preparation
-MODEL_H5 = os.path.abspath('C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-05-31\\model.h5')
+MODEL_H5 = os.path.abspath('C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01\\model.h5')
 print(MODEL_H5)
 
 lines = []
@@ -42,14 +48,6 @@ with open(DATA_FILE) as csvfile:
 
 train_samples, validation_samples = train_test_split(lines, test_size=0.2)
 
-def normalize_data(data):
-    #X_train = X_train.astype(np.float32)
-    data = ((data - data.min())/(np.max(data) - np.min(data)))
-    # STOP: Do not change the tests below. Your implementation should pass these tests.
-    assert(round(np.mean(data)) == 0), "The mean of the input data is: %f" % np.mean(X_train)
-    assert(np.min(data) == 0.0 and np.max(data) == 1.0), "The range of the input data is: %.1f to %.1f" % (np.min(X_train), np.max(X_train))
-    return data
-    
 def generator(samples, batch_size=32):
     steer_range = STEER_MAX - STEER_MIN
     steer_mid = (steer_range/2) + STEER_MIN
@@ -77,8 +75,10 @@ def generator(samples, batch_size=32):
                     imgpath = os.path.join(IMG_DIR, os.path.basename(filename))
                     image = cv2.imread(imgpath)
                     # Convert to YUV
-                    image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
-                    image = 
+                    image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)[:, :, :]
+
+                    # For a single layer:
+                    # image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)[:, :, [1]]
                     images.append(image)
 
                     steer_from_mid = float(batch_sample[STEER_FIELD_ID])-steer_mid
@@ -87,26 +87,25 @@ def generator(samples, batch_size=32):
 
                     # Flip
                     image_flipped = np.fliplr(image)
-                    # Convert to YUV
-                    image_flipped = cv2.cvtColor(image_flipped, cv2.COLOR_BGR2YUV)
                     images.append(image_flipped)
                     measurement_flipped = steer_mid - steer_from_mid - c
                     measurements.append(int(measurement_flipped))
 
-            X_train = normalize_data(np.array(images).astype('float'))
+            X_train = np.array(images).astype('float')
             y_train = np.array(measurements)
             yield shuffle(X_train, y_train)
 
-train_generator = generator(train_samples, batch_size=32)
-validation_generator = generator(validation_samples, batch_size=32)
+train_generator = generator(train_samples, batch_size=BATCH_SIZE)
+validation_generator = generator(validation_samples, batch_size=BATCH_SIZE)
 
 if os.path.exists(MODEL_H5):
     model = load_model(MODEL_H5)
 else:
     # Model building
     model = Sequential()
-    model.add(Cropping2D(cropping=((70,0), (0,0))),
-        input_shape=(TARGET_HEIGHT, TARGET_WIDTH, 3))
+    model.add(Lambda(lambda x: x/255.0,
+        input_shape=((TARGET_HEIGHT-TARGET_CROP[0][0]-TARGET_CROP[0][1]),TARGET_WIDTH, 3)))
+    model.add(Cropping2D(cropping=TARGET_CROP))
     # Dropout setup reference:
     # http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
     # Page 1938:
@@ -118,10 +117,6 @@ else:
     model.add(Conv2D(24, (5, 5), strides=(2,2), activation='relu'))
     model.add(Dropout(0.25))
     model.add(Conv2D(36, (5, 5), strides=(2,2), activation='relu'))
-    model.add(Dropout(0.25))
-    model.add(Conv2D(48, (5, 5), strides=(2,2), activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Conv2D(64, (3, 3), activation='relu'))
     model.add(Dropout(0.5))
     model.add(Conv2D(64, (3, 3), activation='relu'))
     model.add(Dropout(0.5))
@@ -130,13 +125,12 @@ else:
     model.add(Dense(50))
     model.add(Dense(10))
     model.add(Dense(1))
-    model.summary()
 
 optimizer = Adam()
 model.compile(loss='mse', optimizer=optimizer)
 history_object = model.fit_generator(train_generator, steps_per_epoch=len(train_samples),
     validation_data=validation_generator, validation_steps=len(validation_samples),
-    epochs=5)
+    epochs=EPOCHS)
 model.save(MODEL_H5)
 
 # Plotting

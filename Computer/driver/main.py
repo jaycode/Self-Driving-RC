@@ -53,8 +53,12 @@ cams = [cv2.VideoCapture(0)]
 ports = ["/dev/ttyUSB0", "/dev/ttyUSB1"]
 
 # This is the smallest current camera may support.
-cams[0].set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-cams[0].set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+# (i.e. setting CAP_PROP_FRAME_WIDTH and HEIGHT smaller than this won't help)
+TARGET_WIDTH = 320
+TARGET_HEIGHT = 240
+cams[0].set(cv2.CAP_PROP_FRAME_WIDTH, TARGET_WIDTH)
+cams[0].set(cv2.CAP_PROP_FRAME_HEIGHT, TARGET_HEIGHT)
+TARGET_CROP = ((70, 20), (0, 0))
 
 # TODO: This is currently throttle value but we will update it once we got
 #       accelerometer.
@@ -241,6 +245,12 @@ def main():
                 
                 # Read image and do image preprocessing
                 ret, frame = cams[0].read()
+
+                # Crop frame and use certain layer(s). See `learner/learner.py` in
+                # both `generate()` function and `input_shape` parameter of the model.
+                frame = frame[TARGET_CROP[0][0]:(TARGET_HEIGHT - TARGET_CROP[0][1]),
+                              TARGET_CROP[1][0]:(TARGET_HEIGHT - TARGET_CROP[1][1]), :]
+
                 image_array = np.asarray(frame)
                 throttle = controller.update(speed)
                 msg = None

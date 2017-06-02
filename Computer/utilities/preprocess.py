@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 
 
-DATA_DIR = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-05-31"
+DATA_DIR = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01"
 
 def main():
     lines = []

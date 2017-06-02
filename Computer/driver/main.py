@@ -212,11 +212,11 @@ def main():
 
             if drive_mode == DRIVE_MODE_RECORDED:
                 # Record this frame.
+                # No need to do image preprocessing here. We want the
+                # raw image and experiment with preprocessing later in
+                # training phase. The final preprocessing will then
+                # be implemented in the inference phase.
                 ret, frame = cams[0].read()
-
-                # Crop frame. Update `learner/learner.py` as well.
-                # See `utilities/preprocess.py` to see how it may look.
-                frame = frame[70:220,:,:]
 
                 # Create image path.
                 filename = "{}.jpg".format(tstamp)
@@ -237,6 +237,9 @@ def main():
                 fd.close()
 
             elif drive_mode == DRIVE_MODE_AUTO:
+                # Inference phase
+                
+                # Read image and do image preprocessing
                 ret, frame = cams[0].read()
                 image_array = np.asarray(frame)
                 throttle = controller.update(speed)

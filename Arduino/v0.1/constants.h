@@ -43,9 +43,9 @@ const char CCMD_AUTO_THROTTLE = 't';
 // 
 // WARNING: Turning the remote controller off will make the feed slower
 //          (depending on the `timeout` setting in RC class).
-const uint8_t DRIVE_MODE_MANUAL = 1; // 1
+const uint8_t DRIVE_MODE_MANUAL = 0; // 1
 const uint8_t DRIVE_MODE_RECORDED = 2;
-const uint8_t DRIVE_MODE_AUTO = 0;
+const uint8_t DRIVE_MODE_AUTO = 1;
 //----END VALUES----
 
 #endif

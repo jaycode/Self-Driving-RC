@@ -1,3 +1,7 @@
+# To use, run:
+# `sudo su`
+# `source activate python3`
+# `python main.py --model [model-path]`
 import serial
 import numpy as np
 import cv2
@@ -6,7 +10,7 @@ import os
 import argparse
 import h5py
 from keras.models import load_model
-
+import time
 
 CMD_BEGIN = b'C'
 CMD_STATUS = b'S'
@@ -43,9 +47,9 @@ MODE_LISTEN_DRIVE_MODE = 3
 MODE_LISTEN_DEBUG = 4
 
 # The following values need to be the same with the ones in the microcontroller.
-DRIVE_MODE_MANUAL = 1
+DRIVE_MODE_MANUAL = 0
 DRIVE_MODE_RECORDED = 2
-DRIVE_MODE_AUTO = 0
+DRIVE_MODE_AUTO = 1
 
 RECORDED_IMG_PATH = "/home/sku/recorded"
 RECORDED_CSV_PATH = "/home/sku/recorded.csv"
@@ -62,9 +66,12 @@ TARGET_CROP = ((70, 20), (0, 0))
 
 # TODO: This is currently throttle value but we will update it once we got
 #       accelerometer.
-set_speed = 100
+set_speed = 130
 
 MIN_THROTTLE = 50
+MAX_THROTTLE = 255
+THROTTLE_P=0.25
+THROTTLE_I=0.01
 
 def choose_port(ports):
     port_connected = False
@@ -105,7 +112,7 @@ class SimplePIController:
         return self.Kp * self.error + self.Ki * self.integral
 
 
-controller = SimplePIController(0.1, 0.002)
+controller = SimplePIController(THROTTLE_P, THROTTLE_I)
 controller.set_desired(set_speed)
 
 def prepare_model(model_path):
@@ -126,11 +133,18 @@ def listen_status(port):
     speed = 0.0
     steer = 512
     while s_cmd != b"\n":
+        time_a = time.time()
         s_cmd = port.read(1)
+        print("status a:", time.time() - time_a)
+        print(s_cmd)
         if s_cmd == b'v':
+            time_b = time.time()
             speed = float(read_bytes_until(port, b';', 8))
+            print("status b:", time.time() - time_b)
         elif s_cmd == b'o':
+            time_c = time.time()
             steer = int(read_bytes_until(port, b';', 5))
+            print("status c:", time.time() - time_c)
 
     # There will be some buffer leftover when user changes the drive mode,
     # that is why this assert is commented out. We keep it here for
@@ -180,24 +194,28 @@ def main():
         print("Warning: No model has been defined. AUTO mode is disabled.\n"+\
               "Add --model [path to json file] to load a model.")
 
+    previous_time = time.time()
     while True:
+        loop_time = time.time()
+        print("single loop time:",loop_time-previous_time)
+        prevous_time = loop_time
+
         cycle+=1
         if cycle == 100000:
             cycle = 0
 
         if mode == MODE_NONE:
-            if port.in_waiting > 0:
-                cmd = port.read(1)
-                if cmd == CMD_BEGIN:
-                    mode = MODE_LISTEN_CMD
-            else:
-                # All communication should be initiated by the computer, since
-                # otherwise there will be some data left in the buffer that would
-                # cause in lags. That is why we send request to gain information
-                # here.
-                if drive_mode == DRIVE_MODE_RECORDED or drive_mode == DRIVE_MODE_AUTO:
-                    port.write(CCMD_REQUEST_STATUS)
-                    mode = MODE_LISTEN_STATUS
+            # All communication should be initiated by the computer, since
+            # otherwise there will be some data left in the buffer that would
+            # cause in lags. That is why we send request to gain information
+            # here.
+            if drive_mode == DRIVE_MODE_RECORDED or drive_mode == DRIVE_MODE_AUTO:
+                port.write(CCMD_REQUEST_STATUS)
+                mode = MODE_LISTEN_STATUS
+                
+            cmd = port.read(1)
+            if cmd == CMD_BEGIN:
+                mode = MODE_LISTEN_CMD
         elif mode == MODE_LISTEN_CMD:
             cmd = port.read(1)
             # Add here whenever a new command is added.
@@ -207,12 +225,15 @@ def main():
                 mode = MODE_LISTEN_DRIVE_MODE
             elif cmd == CMD_DEBUG:
                 mode = MODE_LISTEN_DEBUG
+
+
         if mode == MODE_LISTEN_STATUS:
             # Get timestamp and steer information.
             steer, speed = listen_status(port)
             tstamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S.%f")
             print("steer: {} speed: {} ({})".format(steer, speed, tstamp))
 
+            print("mid time:", time.time() - loop_time)
             if drive_mode == DRIVE_MODE_RECORDED:
                 # Record this frame.
                 # No need to do image preprocessing here. We want the
@@ -245,14 +266,11 @@ def main():
 
             elif drive_mode == DRIVE_MODE_AUTO:
                 # Inference phase
+
+                start = time.time()
                 
                 # Read image and do image preprocessing
                 ret, frame = cams[0].read()
-
-                # Crop frame and use certain layer(s). See `learner/learner.py` in
-                # both `generate()` function and `input_shape` parameter of the model.
-                frame = frame[TARGET_CROP[0][0]:(TARGET_HEIGHT - TARGET_CROP[0][1]),
-                              TARGET_CROP[1][0]:(TARGET_HEIGHT - TARGET_CROP[1][1]), :]
 
                 image_array = np.asarray(frame)
                 throttle = controller.update(speed)
@@ -281,6 +299,8 @@ def main():
                         CCMD_AUTO_STEER.decode(), str(new_steer)), 'utf-8'))
                     port.write(bytearray("{}{};".format(\
                         CCMD_AUTO_THROTTLE.decode(), str(throttle)), 'utf-8'))
+                end = time.time()
+                print("time:", end-start)
             mode = MODE_NONE
 
         elif mode == MODE_LISTEN_DRIVE_MODE:
@@ -292,6 +312,8 @@ def main():
             elif val == DRIVE_MODE_AUTO:
                 drive_mode = DRIVE_MODE_AUTO
                 print("Set drive mode to AUTO")
+                port.write(bytearray("{}{};".format(\
+                    CCMD_AUTO_THROTTLE.decode(), str(MIN_THROTTLE)), 'utf-8'))
             elif val == DRIVE_MODE_MANUAL:
                 # Manual mode
                 drive_mode = DRIVE_MODE_MANUAL

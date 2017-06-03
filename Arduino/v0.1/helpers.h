@@ -16,6 +16,4 @@ void sendCommand(char cmd, uint8_t val);
 void sendCommand(char cmd, char val[]);
 void sendCommand(char cmd, String val);
 
-unsigned int chars2int(char b[]);
-
 #endif

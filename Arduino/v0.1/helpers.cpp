@@ -70,11 +70,3 @@ void sendCommand(char cmd, String val) {
   Serial.print(cmd);
   Serial.println(val);
 }
-
-unsigned int chars2int(char b[]) {
-  return int((unsigned char)(b[0]) << 24 |
-              (unsigned char)(b[1]) << 16 |
-              (unsigned char)(b[2]) << 8 |
-              (unsigned char)(b[3]));
-}
-

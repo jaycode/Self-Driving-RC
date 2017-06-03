@@ -33,7 +33,7 @@ void Car::listen() {
   // Communication happens in one direction, from computer to microcontroller.
   listenComputer();
   if (newMode != curDriveMode_) {
-    sendCommand(CMD_CHANGE_DRIVE_MODE, newMode);
+//    sendCommand(CMD_CHANGE_DRIVE_MODE, newMode);
     curDriveMode_ = newMode;
   }
   // Reads current steering angle, needed in listenAile().
@@ -204,7 +204,7 @@ void Car::listenComputer() {
       String s = thro;
       int v = s.toInt();
       accelerate(v);
-      sendCommand(CMD_DEBUG, v);
+//      sendCommand(CMD_DEBUG, v);
     }
   }
 }

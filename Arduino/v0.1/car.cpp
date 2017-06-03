@@ -33,7 +33,6 @@ void Car::listen() {
   // Communication happens in one direction, from computer to microcontroller.
   listenComputer();
   if (newMode != curDriveMode_) {
-    sendCommand(CMD_CHANGE_DRIVE_MODE, newMode);
     curDriveMode_ = newMode;
   }
   // Reads current steering angle, needed in listenAile().
@@ -174,37 +173,35 @@ void Car::setCurDriveMode(uint8_t value) {
   curDriveMode_ = value;
 }
 
+// mode, velocity, steer
 String Car::getStatus() {
-  String str = String("v"+String(curSpeed_, 4)+";o"+String(curSteerFeed_)+";");
+  String str = String("m"+String(curDriveMode_)+"v"+String(curSpeed_, 4)+";s"+String(curSteerFeed_)+";");
   return str;
 }
 
 void Car::listenComputer() {
-  char ccmd = Serial.read();
-  if (ccmd == CCMD_DRIVE_MODE) {
-    sendCommand(CMD_CHANGE_DRIVE_MODE, curDriveMode_);
+  char hostCmd = Serial.read();
+  if (hostCmd == HOST_REQUEST_UPDATE) {
+    sendCommand(DEV_STATUS, getStatus());
   }
-  else if (ccmd == CCMD_REQUEST_STATUS) {
-    sendCommand(CMD_STATUS, getStatus());
-  }
-  else if (ccmd == CCMD_AUTO_STEER && curDriveMode_ == DRIVE_MODE_AUTO) {
+  else if (hostCmd == HOST_AUTO_STEER && curDriveMode_ == DRIVE_MODE_AUTO) {
     char pos[4]; // 0 to 1023
     byte num = Serial.readBytesUntil(';', pos, 4);
     if (num > 0) {
       String s = pos;
       int v = s.toInt();
-//      sendCommand(CMD_DEBUG, v);
+//      sendCommand(DEV_DEBUG, v);
       steerTo(v);
     }
   }
-  else if (ccmd == CCMD_AUTO_THROTTLE && curDriveMode_ == DRIVE_MODE_AUTO) {
+  else if (hostCmd == HOST_AUTO_THROTTLE && curDriveMode_ == DRIVE_MODE_AUTO) {
     char thro[4]; // -255 to 255
     byte num = Serial.readBytesUntil(';', thro, 4);
     if (num > 0) {
       String s = thro;
       int v = s.toInt();
       accelerate(v);
-      sendCommand(CMD_DEBUG, v);
+//      sendCommand(DEV_DEBUG, v);
     }
   }
 }

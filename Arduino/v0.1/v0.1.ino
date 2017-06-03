@@ -41,7 +41,7 @@ void setup() {
 //  Serial.setTimeout(200);
   uint8_t aux1 = rc.readDigital(RC_AUX1);
   car.setCurDriveMode(aux1);
-  sendCommand(CMD_CHANGE_DRIVE_MODE, aux1);
+  sendCommand(DEV_CHANGE_DRIVE_MODE, aux1);
 }
 
 void loop() {

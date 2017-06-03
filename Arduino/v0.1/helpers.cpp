@@ -42,31 +42,31 @@ float normalizeBi(float value, float minA, float maxA, float minB, float maxB) {
 
 // Todo: Get this to work with templates
 void sendCommand(char cmd, int val) {
-  Serial.print(CMD_BEGIN);
+  Serial.print(DEV_BEGIN);
   Serial.print(cmd);
   Serial.println(val);
 }
 
 void sendCommand(char cmd, unsigned int val) {
-  Serial.print(CMD_BEGIN);
+  Serial.print(DEV_BEGIN);
   Serial.print(cmd);
   Serial.println(val);
 }
 
 void sendCommand(char cmd, uint8_t val) {
-  Serial.print(CMD_BEGIN);
+  Serial.print(DEV_BEGIN);
   Serial.print(cmd);
   Serial.println(val);
 }
 
 void sendCommand(char cmd, char val[]) {
-  Serial.print(CMD_BEGIN);
+  Serial.print(DEV_BEGIN);
   Serial.print(cmd);
   Serial.println(val);
 }
 
 void sendCommand(char cmd, String val) {
-  Serial.print(CMD_BEGIN);
+  Serial.print(DEV_BEGIN);
   Serial.print(cmd);
   Serial.println(val);
 }

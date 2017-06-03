@@ -6,41 +6,17 @@ import os
 import argparse
 import h5py
 from keras.models import load_model
+import re
 
 
-CMD_BEGIN = b'C'
-CMD_STATUS = b'S'
-CMD_CHANGE_DRIVE_MODE = b'D'
-CMD_AUTO = b'A'
-CMD_DEBUG = b'd'
-# `iv200;o512;` for velocity 200 and orientation 512.
-CMD_REQUEST_INSTRUCTIONS = b'i';
+DEV_BEGIN = b'B'
+DEV_STATUS = b'S'
+DEV_DEBUG = b'D'
 
 
-CCMD_REQUEST_STATUS = b'S'
-CCMD_DRIVE_MODE = b'D'
-CCMD_AUTO_STEER = b's'
-CCMD_AUTO_THROTTLE = b't'
-
-# These modes are just used internally by the computer to decide
-# what mode it is currently in.
-# For example, mode NONE means the system is at standby.
-# When the microcontroller sends a command CMD_BEGIN (or, simply put,
-# `Serial.print("C")` was initiated by Arduino), computer changes its mode to
-# MODE_LISTEN_CMD where it prepares to read the next command.
-#
-# Some commands may be followed by steering value, let's look at one example:
-# First, the computer asks for steering value, it does so by sending a
-# character 'S' (CCMD_REQUEST_STEER).
-# When the microcontroller reads this, it sends back a char 'C', followed
-# by 'S' (CMD_STATUS). Computer then switches to MODE_LISTEN_STATUS.
-# And finally, the microcontroller sends the number of steering value.
-# accepted by the computer.
-MODE_NONE = 0
-MODE_LISTEN_CMD = 1
-MODE_LISTEN_STATUS = 2
-MODE_LISTEN_DRIVE_MODE = 3
-MODE_LISTEN_DEBUG = 4
+HOST_REQUEST_UPDATE = b'u'
+HOST_AUTO_STEER = b's'
+HOST_AUTO_THROTTLE = b't'
 
 # The following values need to be the same with the ones in the microcontroller.
 DRIVE_MODE_MANUAL = 1
@@ -121,23 +97,23 @@ def prepare_model(model_path):
 
     return load_model(model_path)
 
-def listen_status(port):
-    s_cmd = ''
-    speed = 0.0
-    steer = 512
-    while s_cmd != b"\n":
-        s_cmd = port.read(1)
-        if s_cmd == b'v':
-            speed = float(read_bytes_until(port, b';', 8))
-        elif s_cmd == b'o':
-            steer = int(read_bytes_until(port, b';', 5))
+# def listen_status(port):
+#     s_cmd = ''
+#     speed = 0.0
+#     steer = 512
+#     while s_cmd != b"\n":
+#         s_cmd = port.read(1)
+#         if s_cmd == b'v':
+#             speed = float(read_bytes_until(port, b';', 8))
+#         elif s_cmd == b'o':
+#             steer = int(read_bytes_until(port, b';', 5))
 
-    # There will be some buffer leftover when user changes the drive mode,
-    # that is why this assert is commented out. We keep it here for
-    # debugging.
-    # waiting = port.in_waiting
-    # assert (waiting == 0), "Buffer leftover in listen_status: {}".format(port.read(waiting))
-    return (steer, speed)
+#     # There will be some buffer leftover when user changes the drive mode,
+#     # that is why this assert is commented out. We keep it here for
+#     # debugging.
+#     # waiting = port.in_waiting
+#     # assert (waiting == 0), "Buffer leftover in listen_status: {}".format(port.read(waiting))
+#     return (steer, speed)
 
 def read_bytes_until(port, lchar, liter):
     i = 0
@@ -149,26 +125,26 @@ def read_bytes_until(port, lchar, liter):
         buff = port.read(1)
     return value
 
+def request_device_update(port):
+    status = {}
+    update = read_bytes_until(port, b"\n", 100)
+    if update[0] == DEV_BEGIN:
+        command = update[1]
+        regex = ur"\m([0-9])\v([-+]?[0-9]+)\;\s([-+]?[0-9]*\.?[0-9]+)"
+        matches = re.findall(regex, update[2:])
+        status['mode'] = matches[0]
+        status['speed'] = matches[1]
+        status['steer'] = matches[2]
+    return 
+
 def main():
     port = choose_port(ports)
-    mode = MODE_NONE
-
-    # Default mode cannot be set since when the remote controller
-    # is off it directly defaults to MANUAL.
-    # One way to set to other mode without turning on the remote
-    # controller is by switch the value of another drive mode with
-    # DRIVE_MODE_MANUAL and do the same thing in the microcontroller side.
-    drive_mode = None
-
-    # Asking for drive mode to microcontroller.
-    port.write(CCMD_DRIVE_MODE)
 
     cur_steer = 0;
 
     buff = ''
     print("Listening for commands...");
     cycle = 0
-
 
     parser = argparse.ArgumentParser(description='Remote Driving')
     parser.add_argument('--model', type=str,
@@ -185,27 +161,96 @@ def main():
         if cycle == 100000:
             cycle = 0
 
+        status, command = request_device_update(port)
+        if command == DEV_DEBUG:
+            print
+        elif command == DEV_STATUS:
+            if status['mode'] == DRIVE_MODE_RECORDED:
+                # Record this frame.
+                # No need to do image preprocessing here. We want the
+                # raw image and experiment with preprocessing later in
+                # training phase. The final preprocessing will then
+                # be implemented in the inference phase.
+                ret, frame = cams[0].read()
+
+                # Create image path.
+                filename = "{}.jpg".format(tstamp)
+                path = os.path.join(RECORDED_IMG_PATH, filename)
+
+                # We put the makedirs here to ensure directory is created
+                # when re-recording without having to reset the script.
+                os.makedirs(RECORDED_IMG_PATH, exist_ok=True)
+
+                # Save image
+                cv2.imwrite(path, frame)
+
+                # Append to training data.
+                if not os.path.isfile(RECORDED_CSV_PATH):
+                    fd = open(RECORDED_CSV_PATH, 'w')
+                    head = "filename, steer, speed\n"
+                    fd.write(head)
+                else:
+                    fd = open(RECORDED_CSV_PATH,'a')
+                row = "{}, {}, {}\n".format(filename, status['steer'], status['speed'])
+                fd.write(row)
+                fd.close()
+            elif status['mode'] == DRIVE_MODE_AUTO:
+                # Inference phase
+                
+                # Read image and do image preprocessing
+                ret, frame = cams[0].read()
+
+                image_array = np.asarray(frame)
+                throttle = controller.update(speed)
+                msg = None
+                try:
+                    prediction = model.predict(\
+                        image_array[None, :, :, :], batch_size=1)
+                    new_steer = prediction[0][0]
+                except TypeError as err:
+                    msg = "TypeError: {}".format(err)
+                    print(msg)
+                except ValueError as err:
+                    msg = "TypeError: {}".format(err)
+                    print(msg)
+                except UnboundLocalError as err:
+                    # No model since auto mode was disabled.
+                    msg = "AUTO mode was disabled since no model was initialized."
+                    print(msg)
+                if msg:
+                    with open('error.log','a') as f:
+                        f.write(msg)
+                        f.write("\n")
+                else:
+                    print("throttle:", throttle)
+                    port.write(bytearray("{}{};".format(\
+                        HOST_AUTO_STEER.decode(), str(new_steer)), 'utf-8'))
+                    port.write(bytearray("{}{};".format(\
+                        HOST_AUTO_THROTTLE.decode(), str(throttle)), 'utf-8'))
+
+# ===================================
+
         if mode == MODE_NONE:
             if port.in_waiting > 0:
                 cmd = port.read(1)
-                if cmd == CMD_BEGIN:
-                    mode = MODE_LISTEN_CMD
+                if cmd == DEV_BEGIN:
+                    mode = MODE_LISTEN_DEV
             else:
                 # All communication should be initiated by the computer, since
                 # otherwise there will be some data left in the buffer that would
                 # cause in lags. That is why we send request to gain information
                 # here.
                 if drive_mode == DRIVE_MODE_RECORDED or drive_mode == DRIVE_MODE_AUTO:
-                    port.write(CCMD_REQUEST_STATUS)
+                    port.write(HOST_REQUEST_STATUS)
                     mode = MODE_LISTEN_STATUS
-        elif mode == MODE_LISTEN_CMD:
+        elif mode == MODE_LISTEN_DEV:
             cmd = port.read(1)
             # Add here whenever a new command is added.
-            if cmd == CMD_STATUS or cmd == CMD_REQUEST_INSTRUCTIONS:
+            if cmd == DEV_STATUS or cmd == DEV_REQUEST_INSTRUCTIONS:
                 mode = MODE_LISTEN_STATUS
-            elif cmd == CMD_CHANGE_DRIVE_MODE:
+            elif cmd == DEV_CHANGE_DRIVE_MODE:
                 mode = MODE_LISTEN_DRIVE_MODE
-            elif cmd == CMD_DEBUG:
+            elif cmd == DEV_DEBUG:
                 mode = MODE_LISTEN_DEBUG
         if mode == MODE_LISTEN_STATUS:
             # Get timestamp and steer information.
@@ -278,9 +323,9 @@ def main():
                 else:
                     print("throttle:", throttle)
                     port.write(bytearray("{}{};".format(\
-                        CCMD_AUTO_STEER.decode(), str(new_steer)), 'utf-8'))
+                        HOST_AUTO_STEER.decode(), str(new_steer)), 'utf-8'))
                     port.write(bytearray("{}{};".format(\
-                        CCMD_AUTO_THROTTLE.decode(), str(throttle)), 'utf-8'))
+                        HOST_AUTO_THROTTLE.decode(), str(throttle)), 'utf-8'))
             mode = MODE_NONE
 
         elif mode == MODE_LISTEN_DRIVE_MODE:

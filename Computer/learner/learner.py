@@ -26,17 +26,17 @@ TARGET_HEIGHT = 240
 TARGET_CROP = ((70, 20), (0, 0))
 
 # Lower batch size and higher epochs = slower, but lower validation error
-BATCH_SIZE=4
-EPOCHS=20
+BATCH_SIZE=16
+EPOCHS=10
 
-IMG_DIR = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01\\recorded"
-DATA_FILE = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01\\recorded.csv"
+IMG_DIR = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1\\recorded"
+DATA_FILE = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1\\recorded.csv"
 
 STEER_FIELD_ID = 1
 SPEED_FIELD_ID = 2
 
 # Data Preparation
-MODEL_H5 = os.path.abspath('C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01\\model.h5')
+MODEL_H5 = os.path.abspath('C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1\\model.h5')
 print(MODEL_H5)
 
 lines = []
@@ -104,7 +104,7 @@ else:
     # Model building
     model = Sequential()
     model.add(Lambda(lambda x: x/255.0,
-        input_shape=((TARGET_HEIGHT-TARGET_CROP[0][0]-TARGET_CROP[0][1]),TARGET_WIDTH, 3)))
+        input_shape=(TARGET_HEIGHT,TARGET_WIDTH, 3)))
     model.add(Cropping2D(cropping=TARGET_CROP))
     # Dropout setup reference:
     # http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
@@ -126,6 +126,7 @@ else:
     model.add(Dense(10))
     model.add(Dense(1))
 
+model.summary()
 optimizer = Adam()
 model.compile(loss='mse', optimizer=optimizer)
 history_object = model.fit_generator(train_generator, steps_per_epoch=len(train_samples),

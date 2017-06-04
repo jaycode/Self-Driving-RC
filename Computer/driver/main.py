@@ -24,11 +24,6 @@ HOST_REQUEST_UPDATE = b'u'
 HOST_AUTO_STEER = b's'
 HOST_AUTO_THROTTLE = b't'
 
-MODE_NONE = 0
-MODE_LISTEN_STATUS_MODE = 1
-MODE_LISTEN_STATUS_SPEED = 2
-MODE_LISTEN_STATUS_STEER = 3
-
 # The following values need to be the same with the ones in the microcontroller.
 DRIVE_MODE_MANUAL = 1 # 1
 DRIVE_MODE_RECORDED = 2 # 2
@@ -145,14 +140,8 @@ def read_status(port):
     return status
 
 def main():
-    mode = MODE_NONE
     port = choose_port(ports)
-
-    cur_steer = 0;
-
-    buff = ''
     print("Listening for commands...");
-    cycle = 0
 
     parser = argparse.ArgumentParser(description='Remote Driving')
     parser.add_argument('--model', type=str,

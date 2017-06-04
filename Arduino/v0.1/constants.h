@@ -9,29 +9,21 @@
 #include <stdint.h>
 
 //----BEGIN ARDUINO COMMANDS----
-// Begin listening to the next command.
-const char CMD_BEGIN = 'C';
+// Tells the host to begin listening to the next command.
+const char DEV_BEGIN = 'B';
 // Steering wheel and speed feedback.
-const char CMD_STATUS = 'S';
-// Change drive mode.
-const char CMD_CHANGE_DRIVE_MODE = 'D';
+const char DEV_STATUS = 'S';
 // Debug. Send message to computer to display.
-const char CMD_DEBUG = 'd';
-// Request instructions. Pass this along with vehicle info
-// like velocity and orientation. Example command:
-// `iv200;o512;` for velocity 200 and orientation 512.
-const char CMD_REQUEST_INSTRUCTIONS = 'i';
+const char DEV_DEBUG = 'D';
 //----END ARDUINO COMMANDS----
 
 //----BEGIN COMPUTER COMMANDS----
 // Computer asks for wheel feedback.
-const char CCMD_REQUEST_STATUS = 'S';
-// Computer asks for drive mode.
-const char CCMD_DRIVE_MODE = 'D';
+const char HOST_REQUEST_UPDATE = 'u';
 // Computer steers the wheel.
-const char CCMD_AUTO_STEER = 's';
+const char HOST_AUTO_STEER = 's';
 // Computer inputs throttle.
-const char CCMD_AUTO_THROTTLE = 't';
+const char HOST_AUTO_THROTTLE = 't';
 //----END COMPUTER COMMANDS----
 
 //----BEGIN VALUES----
@@ -43,9 +35,9 @@ const char CCMD_AUTO_THROTTLE = 't';
 // 
 // WARNING: Turning the remote controller off will make the feed slower
 //          (depending on the `timeout` setting in RC class).
-const uint8_t DRIVE_MODE_MANUAL = 0; // 1
-const uint8_t DRIVE_MODE_RECORDED = 2;
-const uint8_t DRIVE_MODE_AUTO = 1;
+const uint8_t DRIVE_MODE_MANUAL = 1; // 1
+const uint8_t DRIVE_MODE_RECORDED = 2; // 2
+const uint8_t DRIVE_MODE_AUTO = 0; // 0
 //----END VALUES----
 
 #endif

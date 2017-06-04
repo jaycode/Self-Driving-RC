@@ -30,10 +30,7 @@ void Car::brake() {
 void Car::listen() {
   uint8_t newMode = rc_.readDigital(RC_AUX1);
 
-  // Communication happens in one direction, from computer to microcontroller.
-  listenComputer();
   if (newMode != curDriveMode_) {
-//    sendCommand(CMD_CHANGE_DRIVE_MODE, newMode);
     curDriveMode_ = newMode;
   }
   // Reads current steering angle, needed in listenAile().
@@ -43,7 +40,7 @@ void Car::listen() {
 //  curSpeed_ = 
   
   if (curDriveMode_ != DRIVE_MODE_AUTO) {
-    // We set steer speed as 0 here to allow for two joysticks controlling the steering wheel.
+//     We set steer speed as 0 here to allow for two joysticks controlling the steering wheel.
     steerSpeed_ = 0;
     listenThro(); // throttling left joystick
     listenElev(); // throttling right joystick
@@ -52,6 +49,8 @@ void Car::listen() {
     steer(steerSpeed_);
   }
   else if (curDriveMode_ == DRIVE_MODE_AUTO) {
+    // Communication happens in one direction, from computer to microcontroller.
+    listenComputer();
     autoSteer();
   }
 
@@ -174,37 +173,90 @@ void Car::setCurDriveMode(uint8_t value) {
   curDriveMode_ = value;
 }
 
+// mode, velocity, steer
+// m1v+010s0010
 String Car::getStatus() {
-  String str = String("v"+String(curSpeed_, 4)+";o"+String(curSteerFeed_)+";");
+  // --- Too slow ---
+//  char cvelocity[3];
+//  sprintf(cvelocity, "%03d", int(curSpeed_+0.5));
+//  
+//  String velocity;
+//  if (curSpeed_ >= 0.0) {
+//    velocity = String("+"+String(cvelocity));
+//  }
+//  else {
+//    velocity = String(cvelocity);
+//  }
+//
+//  char csteer[4];
+//  sprintf(csteer, "%04d", curSteerFeed_);
+//  String steer = String(csteer);
+//  
+//  String str = String("m"+String(curDriveMode_)+"v"+velocity+"s"+steer);
+  // --- The code above was commented because it was too slow ---
+  
+  String str = String("m"+String(curDriveMode_)+"v"+String(curSpeed_, 0)+"s"+String(curSteerFeed_));
   return str;
 }
 
+//void Car::listenComputer() {
+//  while (Serial.available() == 0);
+//  char cmd = Serial.read();
+//  Serial.print(cmd);
+//  if (cmd == 's') {
+//    for (int i=0; i<5; i++) {
+//      while (Serial.available() == 0);
+//      char pos = Serial.read();
+//      Serial.print(pos);
+//    }
+//    Serial.print('\n');
+//  }
+//}
+
 void Car::listenComputer() {
-  char ccmd = Serial.read();
-  if (ccmd == CCMD_DRIVE_MODE) {
-    sendCommand(CMD_CHANGE_DRIVE_MODE, curDriveMode_);
+  while (Serial.available() == 0);
+  char hostCmd = Serial.read();
+  if (hostCmd == HOST_REQUEST_UPDATE) {
+    sendCommand(DEV_STATUS, getStatus());
   }
-  else if (ccmd == CCMD_REQUEST_STATUS) {
-    sendCommand(CMD_STATUS, getStatus());
-  }
-  else if (ccmd == CCMD_AUTO_STEER && curDriveMode_ == DRIVE_MODE_AUTO) {
-    char pos[4]; // 0 to 1023
-    byte num = Serial.readBytesUntil(';', pos, 4);
-    if (num > 0) {
-      String s = pos;
-      int v = s.toInt();
-//      sendCommand(CMD_DEBUG, v);
-      steerTo(v);
+  else if (hostCmd == HOST_AUTO_STEER) {
+    String pos; // 0000 to 1023
+    for (int i=0; i<5; i++) {
+      while (Serial.available() == 0);
+      char c = Serial.read();
+//      Serial.print(c);
+      pos += c;
     }
+    int v = pos.toInt();
+    steerTo(v);
+//    Serial.print('\n');
+
+//    while (Serial.available() < 5);
+//    
+//    byte num = Serial.readBytesUntil(';', pos, 5);
+//    if (num > 0) {
+//      String s = pos;
+//      int v = s.toInt();
+//      sendCommand(DEV_DEBUG, pos);
+//      steerTo(v);
+////        steerTo(100);
+//
+//    }
   }
-  else if (ccmd == CCMD_AUTO_THROTTLE && curDriveMode_ == DRIVE_MODE_AUTO) {
-    char thro[4]; // -255 to 255
-    byte num = Serial.readBytesUntil(';', thro, 4);
+  else if (hostCmd == HOST_AUTO_THROTTLE) {
+    char thro[4]; // -255 to +255
+//    while (Serial.available() < 5);
+    byte num = Serial.readBytesUntil(';', thro, 5);
     if (num > 0) {
       String s = thro;
       int v = s.toInt();
       accelerate(v);
-//      sendCommand(CMD_DEBUG, v);
     }
   }
+//  else {
+//    // If it does not understand the command the computer gave,
+//    // return the command back. This is needed to give a "kick"
+//    // on the first loop.
+//    sendCommand(DEV_DEBUG, hostCmd);
+//  }
 }

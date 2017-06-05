@@ -26,8 +26,8 @@ TARGET_HEIGHT = 240
 TARGET_CROP = ((70, 20), (0, 0))
 
 # Lower batch size and higher epochs = slower, but lower validation error
-BATCH_SIZE=16
-EPOCHS=10
+BATCH_SIZE=8
+EPOCHS=20
 
 IMG_DIR = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1\\recorded"
 DATA_FILE = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1\\recorded.csv"
@@ -105,28 +105,31 @@ else:
     model = Sequential()
     model.add(Lambda(lambda x: x/255.0,
         input_shape=(TARGET_HEIGHT,TARGET_WIDTH, 3)))
+    # YUV Normalization
+    model.add(Lambda(
+    lambda x: (x - 16) / (np.matrix([235.0, 240.0, 240.0]) - 16) - 0.5))
     model.add(Cropping2D(cropping=TARGET_CROP))
-    # Dropout setup reference:
-    # http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
-    # Page 1938:
-    # Dropout was applied to all the layers of the network with the probability of
-    # retaining a hidden unit being p = (0.9, 0.75, 0.75, 0.5, 0.5, 0.5) for the 
-    # different layers of the network (going from input to convolutional layers to 
-    # fully connected layers).
-    model.add(Dropout(0.1))
-    model.add(Conv2D(24, (5, 5), strides=(2,2), activation='relu'))
-    model.add(Dropout(0.25))
-    model.add(Conv2D(36, (5, 5), strides=(2,2), activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Conv2D(64, (3, 3), activation='relu'))
-    model.add(Dropout(0.5))
+    model.add(Conv2D(32, (3, 3), strides=(3, 3), padding='same'))
+    model.add(MaxPooling2D())
+    model.add(Conv2D(64, (3, 3), strides=(3, 3), padding='same'))
+    model.add(MaxPooling2D())
+    model.add(Conv2D(128, (3, 3), strides=(3, 3), padding='same'))
+    model.add(MaxPooling2D())
     model.add(Flatten())
-    model.add(Dense(100))
-    model.add(Dense(50))
-    model.add(Dense(10))
+    model.add(Dense(500, activation='relu'))
+    model.add(Dropout(0.2))
+    model.add(Dense(100, activation='relu'))
+    model.add(Dropout(0.2))
+    model.add(Dense(10, activation='relu'))
+    model.add(Dropout(0.2))
     model.add(Dense(1))
 
 model.summary()
+if os.path.exists(MODEL_H5):
+    print("Load existing model", MODEL_H5)
+else:
+    print("Create a new model at", MODEL_H5)
+
 optimizer = Adam()
 model.compile(loss='mse', optimizer=optimizer)
 history_object = model.fit_generator(train_generator, steps_per_epoch=len(train_samples),

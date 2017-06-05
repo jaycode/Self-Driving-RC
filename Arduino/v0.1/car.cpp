@@ -38,7 +38,8 @@ void Car::listen() {
 
   // Update to use accelerometer output later.
 //  curSpeed_ = 
-  
+
+  listenComputer();
   if (curDriveMode_ != DRIVE_MODE_AUTO) {
 //     We set steer speed as 0 here to allow for two joysticks controlling the steering wheel.
     steerSpeed_ = 0;
@@ -50,7 +51,6 @@ void Car::listen() {
   }
   else if (curDriveMode_ == DRIVE_MODE_AUTO) {
     // Communication happens in one direction, from computer to microcontroller.
-    listenComputer();
     autoSteer();
   }
 

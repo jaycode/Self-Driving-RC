@@ -215,7 +215,7 @@ def main():
 
     previous_time = time.time()
 
-    # If using test images, override the process.
+    model = None
     if test_dir != None:
         if not model:
             print("Model needs to be loaded to run testing. Call the script " + \
@@ -261,6 +261,8 @@ def main():
                         # be implemented in the inference phase.
                         ret, frame = cams[0].read()
 
+
+                        tstamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S.%f")
                         # Create image path.
                         filename = "{}.jpg".format(tstamp)
                         path = os.path.join(RECORDED_IMG_PATH, filename)
@@ -282,7 +284,7 @@ def main():
                         row = "{}, {}, {}\n".format(filename, status['steer'], status['speed'])
                         fd.write(row)
                         fd.close()
-                    elif status['mode'] == DRIVE_MODE_AUTO:
+                    elif status['mode'] == DRIVE_MODE_AUTO and model:
                         # Inference phase                        
                         auto_drive_cams(port, controller, status, model, cams)
 

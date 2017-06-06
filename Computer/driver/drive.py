@@ -18,6 +18,14 @@ import time
 import re
 import glob
 import csv
+import pickle
+
+dir_path = os.path.dirname(os.path.realpath(__file__))
+CALIBRATION_FILE = os.path.realpath(os.path.join(dir_path, '..', 'calibrations', 'cal-elp.p'))
+with open( CALIBRATION_FILE, "rb" ) as pfile:
+    cal = pickle.load(pfile)
+mtx = cal['mtx']
+dist = cal['dist']
 
 DEV_BEGIN = b'B'
 DEV_STATUS = b'S'
@@ -45,7 +53,6 @@ TARGET_WIDTH = 320
 TARGET_HEIGHT = 240
 cams[0].set(cv2.CAP_PROP_FRAME_WIDTH, TARGET_WIDTH)
 cams[0].set(cv2.CAP_PROP_FRAME_HEIGHT, TARGET_HEIGHT)
-TARGET_CROP = ((70, 20), (0, 0))
 
 # TODO: This is currently throttle value but we will update it once we got
 #       accelerometer.
@@ -145,10 +152,16 @@ def read_status(port):
     return status
 
 def auto_drive_cams(port, controller, status, model, cams):
+    global mtx, dist
     # Read image and do image preprocessing (when needed)
-    ret, frame = cams[0].read()
+    ret, image = cams[0].read()
 
-    image_array = np.asarray(frame)
+    # Preprocessing
+    image = cv2.undistort(image, mtx, dist, None, mtx)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    image = cv2.Sobel(image, -1, 0, 1, ksize=3)
+
+    image_array = np.asarray(image)
     throttle = controller.update(status['speed'])
     msg = None
     try:

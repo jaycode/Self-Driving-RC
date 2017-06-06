@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import sklearn
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
+import pickle
 
 import keras
 from keras.models import Sequential, load_model
@@ -23,28 +24,43 @@ STEER_MAX = 993
 # i.e. look for cams setup with variable CAP_PROP_FRAME_WIDTH and CAP_PROP_FRAME_HEIGHT.
 TARGET_WIDTH = 320
 TARGET_HEIGHT = 240
-TARGET_CROP = ((70, 20), (0, 0))
+TARGET_CROP = ((60, 20), (0, 0))
 
-# Lower batch size and higher epochs = slower, but lower validation error
-BATCH_SIZE=8
-EPOCHS=20
+BATCH_SIZE=32
+EPOCHS=5
 
-IMG_DIR = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1\\recorded"
-DATA_FILE = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1\\recorded.csv"
+IMG_DIRS = [
+"C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1\\recorded",
+"C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-04\\recorded"
+]
+DATA_FILES = [
+"C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1\\recorded.csv",
+"C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-04\\recorded.csv"]
+
+dir_path = os.path.dirname(os.path.realpath(__file__))
+CALIBRATION_FILE = os.path.realpath(os.path.join(dir_path, '..', 'calibrations', 'cal-elp.p'))
 
 STEER_FIELD_ID = 1
 SPEED_FIELD_ID = 2
 
-# Data Preparation
-MODEL_H5 = os.path.abspath('C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1\\model.h5')
+# The model is going to be created at this path. If the model
+# already exists at that location, use it as the base for subsequent learning.
+MODEL_H5 = os.path.abspath('C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\model.h5')
 print(MODEL_H5)
 
+with open( CALIBRATION_FILE, "rb" ) as pfile:
+    cal = pickle.load(pfile)
+mtx = cal['mtx']
+dist = cal['dist']
+
 lines = []
-with open(DATA_FILE) as csvfile:
-    reader = csv.reader(csvfile)
-    next(reader, None)
-    for line in reader:
-        lines.append(line)
+for i, data_file in enumerate(DATA_FILES):
+    with open(data_file) as csvfile:
+        reader = csv.reader(csvfile)
+        next(reader, None)
+        for line in reader:
+            line.append(i)
+            lines.append(line)
 
 train_samples, validation_samples = train_test_split(lines, test_size=0.2)
 
@@ -72,10 +88,17 @@ def generator(samples, batch_size=32):
                     # field number i contains the image.
                     source_path = batch_sample[i]
                     filename = source_path.split('/')[-1]
-                    imgpath = os.path.join(IMG_DIR, os.path.basename(filename))
+
+                    dir_id = batch_sample[-1]
+                    imgdir = os.path.abspath(IMG_DIRS[dir_id])
+
+                    imgpath = os.path.join(imgdir, os.path.basename(filename))
                     image = cv2.imread(imgpath)
-                    # Convert to YUV
-                    image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)[:, :, :]
+
+                    # Preprocessing
+                    image = cv2.undistort(image, mtx, dist, None, mtx)
+                    image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+                    image = cv2.Sobel(image, -1, 0, 1, ksize=3)
 
                     # For a single layer:
                     # image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)[:, :, [1]]
@@ -106,23 +129,56 @@ else:
     model.add(Lambda(lambda x: x/255.0,
         input_shape=(TARGET_HEIGHT,TARGET_WIDTH, 3)))
     # YUV Normalization
-    model.add(Lambda(
-    lambda x: (x - 16) / (np.matrix([235.0, 240.0, 240.0]) - 16) - 0.5))
+    # model.add(Lambda(
+    # lambda x: (x - 16) / (np.matrix([235.0, 240.0, 240.0]) - 16) - 0.5,
+    # input_shape=(TARGET_HEIGHT,TARGET_WIDTH, 3)))
+
     model.add(Cropping2D(cropping=TARGET_CROP))
-    model.add(Conv2D(32, (3, 3), strides=(3, 3), padding='same'))
-    model.add(MaxPooling2D())
-    model.add(Conv2D(64, (3, 3), strides=(3, 3), padding='same'))
-    model.add(MaxPooling2D())
-    model.add(Conv2D(128, (3, 3), strides=(3, 3), padding='same'))
-    model.add(MaxPooling2D())
+    model.add(Conv2D(24, (5, 5), strides=(2,2), activation='relu'))
+    model.add(Conv2D(36, (5, 5), strides=(2,2), activation='relu'))
+    model.add(Conv2D(48, (5, 5), strides=(2,2), activation='relu'))
+    model.add(Conv2D(64, (3, 3), activation='relu'))
+    model.add(Conv2D(64, (3, 3), activation='relu'))
     model.add(Flatten())
-    model.add(Dense(500, activation='relu'))
-    model.add(Dropout(0.2))
-    model.add(Dense(100, activation='relu'))
-    model.add(Dropout(0.2))
-    model.add(Dense(10, activation='relu'))
-    model.add(Dropout(0.2))
+    model.add(Dense(100))
+    model.add(Dense(50))
+    model.add(Dense(10))
     model.add(Dense(1))
+    
+    # P3 Jay
+    # model.add(Cropping2D(cropping=TARGET_CROP))
+    # model.add(Dropout(0.1))
+    # model.add(Conv2D(24, (5, 5), strides=(2,2), activation='relu'))
+    # model.add(Dropout(0.25))
+    # model.add(Conv2D(36, (5, 5), strides=(2,2), activation='relu'))
+    # model.add(Dropout(0.25))
+    # model.add(Conv2D(48, (5, 5), strides=(2,2), activation='relu'))
+    # model.add(Dropout(0.5))
+    # model.add(Conv2D(64, (3, 3), activation='relu'))
+    # model.add(Dropout(0.5))
+    # model.add(Conv2D(64, (3, 3), activation='relu'))
+    # model.add(Dropout(0.5))
+    # model.add(Flatten())
+    # model.add(Dense(100))
+    # model.add(Dense(50))
+    # model.add(Dense(10))
+    # model.add(Dense(1))
+
+    # P3 Guy
+    # model.add(Conv2D(32, (3, 3), strides=(3, 3), padding='same'))
+    # model.add(MaxPooling2D())
+    # model.add(Conv2D(64, (3, 3), strides=(3, 3), padding='same'))
+    # model.add(MaxPooling2D())
+    # model.add(Conv2D(128, (3, 3), strides=(3, 3), padding='same'))
+    # model.add(MaxPooling2D())
+    # model.add(Flatten())
+    # model.add(Dense(500, activation='relu'))
+    # model.add(Dropout(0.2))
+    # model.add(Dense(100, activation='relu'))
+    # model.add(Dropout(0.2))
+    # model.add(Dense(10, activation='relu'))
+    # model.add(Dropout(0.2))
+    # model.add(Dense(1))
 
 model.summary()
 if os.path.exists(MODEL_H5):

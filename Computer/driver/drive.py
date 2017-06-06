@@ -206,7 +206,6 @@ def main():
         print("Warning: No model has been defined. AUTO mode is disabled.\n"+\
               "Add --model [path to json file] to load a model.")
 
-
     previous_time = time.time()
     while True:
         loop_time = time.time()

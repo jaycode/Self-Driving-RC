@@ -28,6 +28,12 @@ def main():
     parser = argparse.ArgumentParser(description='Clean recorded data')
     parser.add_argument('-r', type=str,
     help="Remove inconsistent data.")
+    parser.add_argument('--dir', type=str,
+        default=RECORDED_DIR,
+        help="Path to recorded directory that contains images")
+    parser.add_argument('--csv', type=str,
+        default=RECORDED_CSV,
+        help="Path to recorded csv file")
 
     print("Rows: {} Images: {}".format(row_count, img_count))
     remove_rows(imgs, reader)

@@ -151,13 +151,15 @@ def read_status(port):
     status['steer'] = int(value)
     return status
 
+def preprocess(raw_image):
+
+
 def auto_drive_cams(port, controller, status, model, cams):
     global mtx, dist
     # Read image and do image preprocessing (when needed)
     ret, image = cams[0].read()
 
     # Preprocessing
-    image = cv2.undistort(image, mtx, dist, None, mtx)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     image = cv2.Sobel(image, -1, 0, 1, ksize=3)
 

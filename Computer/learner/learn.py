@@ -2,6 +2,8 @@ import tensorflow as tf
 import csv
 import cv2
 import os
+import glob
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import sklearn
@@ -29,40 +31,70 @@ TARGET_CROP = ((60, 20), (0, 0))
 BATCH_SIZE=32
 EPOCHS=5
 
-IMG_DIRS = [
-"C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1\\recorded",
-"C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-04\\recorded"
+DATA_DIRS = [
+# "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1\\",
+# "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-04\\"
+"/home/jay/Self-Driving-RC-Data/recorded-2017-06-01.01/",
+"/home/jay/Self-Driving-RC-Data/recorded-2017-06-04/"
 ]
-DATA_FILES = [
-"C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1\\recorded.csv",
-"C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-04\\recorded.csv"]
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 CALIBRATION_FILE = os.path.realpath(os.path.join(dir_path, '..', 'calibrations', 'cal-elp.p'))
 
+# ID of center image filename in the csv file.
+FILENAME_CENTER_FIELD_ID = 0
 STEER_FIELD_ID = 1
 SPEED_FIELD_ID = 2
 
 # The model is going to be created at this path. If the model
 # already exists at that location, use it as the base for subsequent learning.
-MODEL_H5 = os.path.abspath('C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\model.h5')
-print(MODEL_H5)
+# MODEL_H5 = os.path.abspath('C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\model.h5')
+MODEL_H5 = os.path.abspath('/home/jay/Self-Driving-RC-Data/model.h5')
 
 with open( CALIBRATION_FILE, "rb" ) as pfile:
     cal = pickle.load(pfile)
 mtx = cal['mtx']
 dist = cal['dist']
 
+parser = argparse.ArgumentParser(description='Preprocess images')
+parser.add_argument('model', type=str,
+    default=MODEL_H5,
+    help="Path to output model H5 file e.g. `/home/user/model.h5`.")
+parser.add_argument('--data-dirs', type=str,
+    default=DATA_DIRS,
+    nargs='+',
+    help="Path to directory that contains csv file and a directory of images.")
+args = parser.parse_args()
+data_dirs = args.data_dirs
+model_h5 = args.model
+
 lines = []
-for i, data_file in enumerate(DATA_FILES):
+csv_files = data_dirs
+for i, data_dir in enumerate(data_dirs):
+    # Get the first csv file in the dir.
+    data_file = glob.glob(os.path.join(data_dir, '*.csv'))[0]
     with open(data_file) as csvfile:
         reader = csv.reader(csvfile)
         next(reader, None)
         for line in reader:
+            # Convert filename to complete path
+            imgdir = os.path.abspath(os.path.join(data_dir, 'recorded'))
+            imgpath = os.path.join(
+                imgdir,
+                os.path.basename(line[FILENAME_CENTER_FIELD_ID]))
+            line[FILENAME_CENTER_FIELD_ID] = imgpath
+
             line.append(i)
             lines.append(line)
 
 train_samples, validation_samples = train_test_split(lines, test_size=0.2)
+
+def preprocess(raw_img):
+    img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2HSV)[:, :, 2]
+    img = cv2.Sobel(img, -1, 0, 1, ksize=3)
+    img = img / 255.0
+    img = img > 0.5
+    return img
 
 def generator(samples, batch_size=32):
     steer_range = STEER_MAX - STEER_MIN
@@ -87,21 +119,12 @@ def generator(samples, batch_size=32):
                 for i, c in enumerate(corrections):
                     # field number i contains the image.
                     source_path = batch_sample[i]
-                    filename = source_path.split('/')[-1]
-
-                    dir_id = batch_sample[-1]
-                    imgdir = os.path.abspath(IMG_DIRS[dir_id])
-
-                    imgpath = os.path.join(imgdir, os.path.basename(filename))
-                    image = cv2.imread(imgpath)
+                    print("path:", source_path)
+                    image = cv2.imread(source_path)
 
                     # Preprocessing
-                    image = cv2.undistort(image, mtx, dist, None, mtx)
-                    image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-                    image = cv2.Sobel(image, -1, 0, 1, ksize=3)
+                    image = preprocess(image)
 
-                    # For a single layer:
-                    # image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)[:, :, [1]]
                     images.append(image)
 
                     steer_from_mid = float(batch_sample[STEER_FIELD_ID])-steer_mid

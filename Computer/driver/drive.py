@@ -1,24 +1,28 @@
 # To use, run:
 # `sudo su`
-# `source activate python3`
 # `python drive.py --model [model-path]
 
 # We cannot use any blocking here since some packets do disappear in the beginning.
 # Blocking happens in the microcontroller side.
 
+# Load model routine may generate error due to incompatible python
+# compiler used to generate model.h5 file:
+# - "Segmentation fault (core dumped)": h5 file created with python 3.6, drive.py uses python 3.5.
+# - "SystemError: unknown opcode": h5 file created with python 3.5, drive.py uses python 3.6.
+
 import serial
-import numpy as np
 import cv2
 from datetime import datetime
 import os
 import argparse
 import h5py
-from keras.models import load_model
 import time
 import re
 import glob
 import csv
 import pickle
+from keras.models import load_model
+import numpy as np
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 CALIBRATION_FILE = os.path.realpath(os.path.join(dir_path, '..', 'calibrations', 'cal-elp.p'))
@@ -116,6 +120,10 @@ def prepare_model(model_path):
         print('You are using Keras version ', keras_version,
               ', but the model was built using ', model_version)
 
+    # Load model routine may generate error due to incompatible python
+    # compiler used to generate model.h5 file:
+    # - "Segmentation fault (core dumped)": h5 file created with python 3.6, drive.py uses python 3.5.
+    # - "SystemError: unknown opcode": h5 file created with python 3.5, drive.py uses python 3.6.
     return load_model(model_path)
 
 def read_status(port):
@@ -151,8 +159,15 @@ def read_status(port):
     status['steer'] = int(value)
     return status
 
-def preprocess(raw_image):
-
+def preprocess(raw_img):
+    # This should be similar to the one in test.py
+    img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2HSV)[:, :, 2]
+    img = cv2.Sobel(img, -1, 0, 1, ksize=3)
+    img = img / 255.0
+    img = img > 0.5
+    img = np.array([img])
+    img = np.rollaxis(np.concatenate((img, img, img)), 0, 3)
+    return img[:, :, [0]]
 
 def auto_drive_cams(port, controller, status, model, cams):
     global mtx, dist
@@ -160,15 +175,14 @@ def auto_drive_cams(port, controller, status, model, cams):
     ret, image = cams[0].read()
 
     # Preprocessing
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    image = cv2.Sobel(image, -1, 0, 1, ksize=3)
+    final_img = preprocess(image)
+    img_array = np.asarray(final_img)[None, :, :, :]
 
-    image_array = np.asarray(image)
     throttle = controller.update(status['speed'])
     msg = None
     try:
         prediction = model.predict(\
-            image_array[None, :, :, :], batch_size=1)
+            img_array, batch_size=1)
         new_steer = prediction[0][0]
     except TypeError as err:
         msg = "TypeError: {}".format(err)
@@ -199,7 +213,13 @@ def main():
 
     parser = argparse.ArgumentParser(description='Remote Driving')
     parser.add_argument('--model', type=str,
-    help="Path to model definition json. Model weights should be on the same path.")
+        help="Path to model definition json. Model weights should be on the same path.")
+    parser.add_argument('--recorded-img', type=str,
+        default=RECORDED_IMG_PATH,
+        help="Path to model definition json. Model weights should be on the same path.")
+    parser.add_argument('--recorded-csv', type=str,
+        default=RECORDED_CSV_PATH,
+        help="Path to model definition json. Model weights should be on the same path.")
     
     args = parser.parse_args()
     if args.model:
@@ -234,22 +254,22 @@ def main():
 
                     # Create image path.
                     filename = "{}.jpg".format(tstamp)
-                    path = os.path.join(RECORDED_IMG_PATH, filename)
+                    path = os.path.join(args.recorded_img_path, filename)
 
                     # We put the makedirs here to ensure directory is created
                     # when re-recording without having to reset the script.
-                    os.makedirs(RECORDED_IMG_PATH, exist_ok=True)
+                    os.makedirs(args.recorded_img_path, exist_ok=True)
 
                     # Save image
                     cv2.imwrite(path, frame)
 
                     # Append to training data.
-                    if not os.path.isfile(RECORDED_CSV_PATH):
-                        fd = open(RECORDED_CSV_PATH, 'w')
+                    if not os.path.isfile(args.recorded_csv_path):
+                        fd = open(args.recorded_csv_path, 'w')
                         head = "filename, steer, speed\n"
                         fd.write(head)
                     else:
-                        fd = open(RECORDED_CSV_PATH,'a')
+                        fd = open(args.recorded_csv_path,'a')
                     row = "{}, {}, {}\n".format(filename, status['steer'], status['speed'])
                     fd.write(row)
                     fd.close()

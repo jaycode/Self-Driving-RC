@@ -1,6 +1,5 @@
 # To use, run:
 # `sudo su`
-# `source activate python3`
 # `python test.py --model [model-path] --dir [test-dir-path]`
 
 # Set `dir` to a directory that contains the following:
@@ -75,6 +74,7 @@ def prepare_model(model_path):
     return load_model(model_path)
 
 def preprocess(raw_img):
+    # This should be similar to the one in drive.py
     img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2HSV)[:, :, 2]
     img = cv2.Sobel(img, -1, 0, 1, ksize=3)
     img = img / 255.0

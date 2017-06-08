@@ -173,15 +173,15 @@ def main():
             save_path = os.path.join(test_result_imgs_dir, row[0])
             cv2.imwrite(save_path, viz)
 
-            if i%(int(row_count * (100/row_count))) == 0:
+            if i%(max(1,int(row_count/50))) == 0:
                 counter+=1
                 sys.stdout.write("\r{0}".format("="*counter))
 
     print("\n")
-    print("MSE: {}".format(errors/len(errors)))
+    print("MSE: {}".format(errors/len(stats['error'])))
     print("Results saved at", test_result_dir)
     plt.plot(stats['error'])
-    plt.title('model mean squared error loss (total: {})'.format(errors/len(errors)))
+    plt.title('model mean squared error loss (total: {})'.format(errors/len(stats['error'])))
     plt.ylabel('errors')
     plt.xlabel('time')
     plt.savefig(os.path.join(test_result_dir, 'errors.png'), bbox_inches='tight')

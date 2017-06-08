@@ -1,4 +1,0 @@
-DIR="$( cd "$( dirname "$0" )" && pwd )"
-python "$DIR"/preprocess.py \
---data-dir /home/jay/Self-Driving-RC-Data/recorded-2017-06-01.01/ \
---calibration-file /home/jay/Self-Driving-RC/Computer/calibrations/cal-elp.p

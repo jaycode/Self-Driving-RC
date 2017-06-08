@@ -73,6 +73,7 @@ csv_files = data_dirs
 for i, data_dir in enumerate(data_dirs):
     # Get the first csv file in the dir.
     data_file = glob.glob(os.path.join(data_dir, '*.csv'))[0]
+    print("Get data from", data_file)
     with open(data_file) as csvfile:
         reader = csv.reader(csvfile)
         next(reader, None)
@@ -86,6 +87,7 @@ for i, data_dir in enumerate(data_dirs):
 
             line.append(i)
             lines.append(line)
+        print("Number of rows now", len(lines))
 
 train_samples, validation_samples = train_test_split(lines, test_size=0.2)
 
@@ -94,7 +96,9 @@ def preprocess(raw_img):
     img = cv2.Sobel(img, -1, 0, 1, ksize=3)
     img = img / 255.0
     img = img > 0.5
-    return img
+    img = np.array([img])
+    img = np.rollaxis(np.concatenate((img, img, img)), 0, 3)
+    return img[:, :, [0]]
 
 def generator(samples, batch_size=32):
     steer_range = STEER_MAX - STEER_MIN
@@ -119,7 +123,6 @@ def generator(samples, batch_size=32):
                 for i, c in enumerate(corrections):
                     # field number i contains the image.
                     source_path = batch_sample[i]
-                    print("path:", source_path)
                     image = cv2.imread(source_path)
 
                     # Preprocessing
@@ -150,7 +153,7 @@ else:
     # Model building
     model = Sequential()
     model.add(Lambda(lambda x: x/255.0,
-        input_shape=(TARGET_HEIGHT,TARGET_WIDTH, 3)))
+        input_shape=(TARGET_HEIGHT,TARGET_WIDTH, 1)))
     # YUV Normalization
     # model.add(Lambda(
     # lambda x: (x - 16) / (np.matrix([235.0, 240.0, 240.0]) - 16) - 0.5,

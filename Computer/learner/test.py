@@ -1,7 +1,7 @@
 # To use, run:
 # `sudo su`
 # `source activate python3`
-# `python test.py [model-path] [test-dir-path]`
+# `python test.py --model [model-path] --dir [test-dir-path]`
 
 # Set `dir` to a directory that contains the following:
 # - A directory with images to see how the car drives with these data.
@@ -26,9 +26,8 @@ import sys
 # (i.e. setting CAP_PROP_FRAME_WIDTH and HEIGHT smaller than this won't help)
 TARGET_WIDTH = 320
 TARGET_HEIGHT = 240
+TARGET_CROP = ((60, 20), (0, 0))
 
-DEFAULT_MODEL = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1\\model.h5"
-DEFAULT_DIR = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1"
 # TODO: This is currently throttle value but we will update it once we got
 #       accelerometer.
 set_speed = 130
@@ -75,19 +74,28 @@ def prepare_model(model_path):
 
     return load_model(model_path)
 
+def preprocess(raw_img):
+    img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2HSV)[:, :, 2]
+    img = cv2.Sobel(img, -1, 0, 1, ksize=3)
+    img = img / 255.0
+    img = img > 0.5
+    img = np.array([img])
+    img = np.rollaxis(np.concatenate((img, img, img)), 0, 3)
+    return img[:, :, [0]]
+
+
 def main():
     print("Listening for commands...");
 
     parser = argparse.ArgumentParser(description='Remote Driving')
-    parser.add_argument('--model', type=str,
-        default=DEFAULT_MODEL,
+    parser.add_argument('model', type=str,
         help="Path to model definition json. Model weights should be on the same path.")
-    parser.add_argument('--dir', type=str,
-        default=DEFAULT_DIR,
+    parser.add_argument('dir', type=str,
         help="Path to images and data to test the car with. " + \
     "This directory contains the following:\n" + \
-    "- A directory with images to see how the car drives with these data.\n" + \
-    "- A csv file for ground truth."
+    "- A directory named \"recorded\" that contains images the car will see.\n" + \
+    "- A csv file for ground truth.\n\n" + \
+    "Test results will then be created in this directory."
     )
 
     args = parser.parse_args()
@@ -95,13 +103,17 @@ def main():
     model = prepare_model(args.model)
 
     test_dir = args.dir
-    path = glob.glob(os.path.join(test_dir, '*', '*.jpg'))
+
+    path = glob.glob(os.path.join(test_dir, 'recorded', '*.jpg'))
+
     path_r = os.path.split(path[0])
-    test_images_dir = path_r[0:len(path_r)-1][0]
+    test_images_dir = os.path.join(test_dir, "recorded")
     path = os.path.join(test_dir, '*.csv')
     test_image_csv = glob.glob(path)[0]
-    test_result_dir = os.path.join(test_dir, 'results')
-    os.makedirs(test_result_dir, exist_ok=True)
+    test_result_dir = os.path.join(test_dir, 'test_results')
+    test_result_imgs_dir = os.path.join(test_result_dir, 'images')
+
+    os.makedirs(test_result_imgs_dir, exist_ok=True)
 
     previous_time = time.time()
 
@@ -113,6 +125,7 @@ def main():
         'steer': [],
         'error': [],
     }
+
     with open(test_image_csv, 'r') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         next(reader, None)
@@ -122,13 +135,16 @@ def main():
         counter = 0
         print("row count:", row_count)
         for i, row in enumerate(reader):
-            frame = cv2.imread(os.path.join(test_images_dir, row[0]))
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV)
-
-            image_array = np.asarray(frame)
             speed = controller.update(speed)
+
+            frame_path = os.path.join(test_images_dir, row[0])
+            frame = cv2.imread(frame_path)
+            final_img = preprocess(frame)
+            img_array = np.asarray(final_img)[None, :, :, :]
+
             prediction = model.predict(\
-                image_array[None, :, :, :], batch_size=1)
+                img_array, batch_size=1)
+
             new_steer = prediction[0][0]
             error = math.sqrt((float(row[1]) - new_steer)**2)
             errors += error
@@ -136,15 +152,36 @@ def main():
             stats['error'].append(error)
             stats['id'].append(row[0])
             stats['throttle'].append(speed)
-            if i%(int(row_count/100)) == 0:
+
+            # Store log
+
+            # Need to store and load again to work with one-channel image.
+            f3 = np.array([final_img, final_img, final_img])
+            f3 = np.rollaxis(f3, 0, 3)
+            f3 = f3 * 255.0
+            f3 = f3[TARGET_CROP[0][0]:(TARGET_HEIGHT-TARGET_CROP[0][1]),
+                    TARGET_CROP[1][0]:(TARGET_WIDTH-TARGET_CROP[1][1]), 2]
+            save_path = os.path.join(test_result_imgs_dir, row[0])
+            cv2.imwrite(save_path, f3)
+            f3 = cv2.imread(save_path)
+            text1 = "pred: {}".format(new_steer)
+            text2 = "truth: {}".format(row[1])
+            f3 = cv2.putText(f3, text1, (10,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 210))
+            f3 = cv2.putText(f3, text2, (10,80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 150))
+
+            viz = np.concatenate((f3, frame), axis=0)
+            save_path = os.path.join(test_result_imgs_dir, row[0])
+            cv2.imwrite(save_path, viz)
+
+            if i%(int(row_count * (100/row_count))) == 0:
                 counter+=1
                 sys.stdout.write("\r{0}".format("="*counter))
 
     print("\n")
-    print("Errors: {}".format(errors))
+    print("MSE: {}".format(errors/len(errors)))
     print("Results saved at", test_result_dir)
     plt.plot(stats['error'])
-    plt.title('model mean squared error loss')
+    plt.title('model mean squared error loss (total: {})'.format(errors/len(errors)))
     plt.ylabel('errors')
     plt.xlabel('time')
     plt.savefig(os.path.join(test_result_dir, 'errors.png'), bbox_inches='tight')

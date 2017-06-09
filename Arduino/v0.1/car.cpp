@@ -40,13 +40,14 @@ void Car::listen() {
 //  curSpeed_ = 
 
   listenComputer();
+  listenThro(); // throttling left joystick
+  listenElev(); // throttling right joystick
+  accelerate(throSpeed_+elevSpeed_);
   if (curDriveMode_ != DRIVE_MODE_AUTO) {
-//     We set steer speed as 0 here to allow for two joysticks controlling the steering wheel.
+    // We set steer speed as 0 here in anticipation to
+    // later allow for two joysticks controlling the steering wheel.
     steerSpeed_ = 0;
-    listenThro(); // throttling left joystick
-    listenElev(); // throttling right joystick
     listenAile(); // steering right joystick
-    accelerate(throSpeed_+elevSpeed_);
     steer(steerSpeed_);
   }
   else if (curDriveMode_ == DRIVE_MODE_AUTO) {
@@ -199,7 +200,7 @@ String Car::getStatus() {
   return str;
 }
 
-void Car::waitForSerial(int timeout) {
+void Car::waitForSerial(int timeout/*=100*/) {
   if (curDriveMode_ != DRIVE_MODE_MANUAL) {
     int c = 0;
     while (Serial.available() == 0) {

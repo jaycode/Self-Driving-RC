@@ -1,6 +1,6 @@
 # To use, run:
 # `sudo su`
-# `python drive.py --model [model-path]
+# `python drive.py --model [model-path] [-t]
 
 # We cannot use any blocking here since some packets do disappear in the beginning.
 # Blocking happens in the microcontroller side.

@@ -1,6 +1,6 @@
 # To use, run:
 # `sudo su`
-# `python drive.py [--model] [-t]
+# `python drive.py [--model] [-t] [-v]
 
 # === Model Path ===
 # `model` is the path to model definition h5. Model definition is created by learner/learn.py script.
@@ -9,9 +9,14 @@
 # By default, this script does not actuate throttle. To allow it to
 # send throttle commands, include flag `-t`.
 
+# === Visualize ===
+# `-v` option visualizes the what the car sees.
+
+# === Socket ===
 # We cannot use any blocking here since some packets do disappear in the beginning.
 # Blocking happens in the microcontroller side.
 
+# === WARNING ===
 # Load model routine may generate error due to incompatible python
 # compiler used to generate model.h5 file:
 # - "Segmentation fault (core dumped)": h5 file created with python 3.6, drive.py uses python 3.5.
@@ -39,7 +44,7 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 ROOT_DIR = os.path.realpath(os.path.join(dir_path, '..'))
 
 sys.path.append(ROOT_DIR)
-from libraries.helpers import choose_port, preprocess, prepare_model
+from libraries.helpers import configuration, choose_port, preprocess, prepare_model
 
 # Path to calibration file
 CALIBRATION_FILE = os.path.realpath(os.path.join(dir_path, '..', 'calibrations', 'cal-elp.p'))
@@ -47,6 +52,8 @@ with open( CALIBRATION_FILE, "rb" ) as pfile:
     cal = pickle.load(pfile)
 mtx = cal['mtx']
 dist = cal['dist']
+
+config = configuration()
 
 DEV_BEGIN = b'B'
 DEV_STATUS = b'S'
@@ -69,8 +76,9 @@ ports = ["/dev/ttyUSB0", "/dev/ttyUSB1"]
 
 # This is the smallest current camera may support.
 # (i.e. setting CAP_PROP_FRAME_WIDTH and HEIGHT smaller than this won't help)
-TARGET_WIDTH = 320
-TARGET_HEIGHT = 240
+TARGET_WIDTH = config['target_width']
+TARGET_HEIGHT = config['target_height']
+TARGET_CROP = config['target_crop']
 
 # TODO: This is currently throttle value but we will update it once we got
 #       accelerometer.
@@ -93,6 +101,19 @@ REC_LATENCY_SEC=0.3
 # === RECORDER ===
 # Record and process images in a separate thread
 img_queue = Queue(maxsize=128)
+
+def draw_visualization(final_img, image, steer=None):
+    f3 = np.stack((final_img[:, :, 0], final_img[:, :, 0], final_img[:, :, 0]), axis=2)
+    f3 = f3[TARGET_CROP[0][0]:(TARGET_HEIGHT-TARGET_CROP[0][1]),
+            TARGET_CROP[1][0]:(TARGET_WIDTH-TARGET_CROP[1][1]), :]
+    f3 = (f3 * 255.0).astype(np.uint8)
+
+    text1 = "steer: {}".format(steer)
+    f3 = cv2.putText(f3, text1, (10,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 210))
+
+    viz = np.concatenate((f3, image), axis=0)
+    cv2.imshow("RC", viz)
+    cv2.waitKey(1)
 
 def record(cams):
     while True:
@@ -200,7 +221,7 @@ def read_status(port):
     status['steer'] = int(value)
     return status
 
-def auto_drive_cams(port, controller, status, model, cams, allow_throttle):
+def auto_drive_cams(port, controller, status, model, cams, allow_throttle, visualize=False):
     global mtx, dist
     # Read image and do image preprocessing (when needed)
     ret, image = cams[0].read()
@@ -233,12 +254,16 @@ def auto_drive_cams(port, controller, status, model, cams, allow_throttle):
         throttle = int(throttle)
         new_steer = int(new_steer)
         print("throttle: {}, steer: {}".format(throttle, new_steer))
-        if not allow_throttle:
-            print("throttling")
+        if allow_throttle:
             port.write(bytearray("{}{};".format(\
                 HOST_AUTO_THROTTLE.decode(), str(throttle)), 'utf-8'))
         port.write(bytearray("{}{};".format(\
             HOST_AUTO_STEER.decode(), str(new_steer)), 'utf-8'))
+
+        # Visualize
+
+        if visualize:
+            draw_visualization(final_image, image, steer=new_steer)
 
 def main():
     port = choose_port(ports)
@@ -254,9 +279,12 @@ def main():
         default=RECORDED_CSV_PATH,
         help="Path to recorded csv file.")
     parser.add_argument('-t', action='store_true',
-        default='store_false',
+        default=False,
         help="By default, this script does not actuate throttle. To allow it to"
         "send throttle commands, include flag `-t`.")
+    parser.add_argument('-v', action='store_true',
+        default=False,
+        help="`-v` option visualizes the what the car sees.")
 
     args = parser.parse_args()
     if args.model:
@@ -266,6 +294,7 @@ def main():
               "Add --model [path to json file] to load a model.")
 
     allow_throttle = args.t
+    visualize = args.v
 
     cams = find_cams(num=1, n_ports=4)
     for cam in cams:
@@ -302,19 +331,6 @@ def main():
 
                     # Save image
 
-                    # # This is really slow, so we keep the images in a buffer instead.
-                    # # cv2.imwrite(path, frame)
-                    # # Append to training data.
-                    # if not os.path.isfile(args.recorded_csv):
-                    #     fd = open(args.recorded_csv_path, 'w')
-                    #     head = "filename, steer, speed\n"
-                    #     fd.write(head)
-                    # else:
-                    #     fd = open(args.recorded_csv,'a')
-                    # row = "{}, {}, {}\n".format(filename, status['steer'], status['speed'])
-                    # fd.write(row)
-                    # fd.close()
-
                     img_queue.put({
                         'csv_path': args.recorded_csv,
                         'img_dir_path': args.recorded_img,
@@ -325,11 +341,26 @@ def main():
                     })
 
                     time.sleep(REC_LATENCY_SEC)
+                    if visualize:
+                        ret, image = cams[0].read()
+
+                        # Preprocessing
+                        final_img = preprocess(image)
+                        draw_visualization(final_img, image, steer=status['steer'])
+
                 elif status['mode'] == DRIVE_MODE_AUTO:
                     # Inference phase
                     auto_time_1 = time.time()
-                    auto_drive_cams(port, controller, status, model, cams, allow_throttle)
+                    auto_drive_cams(port, controller, status, model, cams, allow_throttle, visualize)
                     print("auto latency:", (time.time() - auto_time_1))
+
+                elif status['mode'] == DRIVE_MODE_MANUAL:
+                    if visualize:
+                        ret, image = cams[0].read()
+
+                        # Preprocessing
+                        final_img = preprocess(image)
+                        draw_visualization(final_img, image, steer=status['steer'])
 
 if __name__ == "__main__":
     main()

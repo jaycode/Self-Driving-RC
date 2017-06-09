@@ -35,13 +35,15 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 ROOT_DIR = os.path.realpath(os.path.join(dir_path, '..'))
 
 sys.path.append(ROOT_DIR)
-from libraries.helpers import choose_port, preprocess, prepare_model
+from libraries.helpers import configuration, choose_port, preprocess, prepare_model
+
+config = configuration()
 
 # This is the smallest current camera may support.
 # (i.e. setting CAP_PROP_FRAME_WIDTH and HEIGHT smaller than this won't help)
-TARGET_WIDTH = 320
-TARGET_HEIGHT = 240
-TARGET_CROP = ((60, 20), (0, 0))
+TARGET_WIDTH = config['target_width']
+TARGET_HEIGHT = config['target_height']
+TARGET_CROP = config['target_crop']
 
 # TODO: This is currently throttle value but we will update it once we got
 #       accelerometer.
@@ -94,12 +96,12 @@ def main():
         "Test results will then be created in this directory."
     )
     parser.add_argument('-d', action='store_true',
-        default='store_false',
+        default=False,
         help="When flag `-d` is included, send command to the actuators. " +
         "This is useful to inspect how the car runs when given input data.\n" +
         "DON'T FORGET TO SET THE CAR TO \"AUTO\" MODE.")
     parser.add_argument('-t', action='store_true',
-        default='store_false',
+        default=False,
         help="By default, this script does not actuate throttle. To allow it to"
         "send throttle commands, include flag `-t`.")
 
@@ -175,15 +177,11 @@ def main():
 
             # === Logging ===
 
-            # Need to store and load again to work with one-channel image.
-            f3 = np.array([final_img, final_img, final_img])
-            f3 = np.rollaxis(f3, 0, 3)
-            f3 = f3 * 255.0
+            f3 = np.stack((final_img[:, :, 0], final_img[:, :, 0], final_img[:, :, 0]), axis=2)
             f3 = f3[TARGET_CROP[0][0]:(TARGET_HEIGHT-TARGET_CROP[0][1]),
-                    TARGET_CROP[1][0]:(TARGET_WIDTH-TARGET_CROP[1][1]), 2]
-            save_path = os.path.join(test_result_imgs_dir, row[0])
-            cv2.imwrite(save_path, f3)
-            f3 = cv2.imread(save_path)
+                    TARGET_CROP[1][0]:(TARGET_WIDTH-TARGET_CROP[1][1]), :]
+            f3 = (f3 * 255.0).astype(np.uint8)
+
             text1 = "pred: {}".format(new_steer)
             text2 = "truth: {}".format(row[1])
             text3 = "RMSE: {0:.2f}".format(error)
@@ -192,6 +190,7 @@ def main():
             f3 = cv2.putText(f3, text3, (10,90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (40, 50, 255))
 
             viz = np.concatenate((f3, frame), axis=0)
+
             save_path = os.path.join(test_result_imgs_dir, row[0])
             cv2.imwrite(save_path, viz)
             if allow_drive:

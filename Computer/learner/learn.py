@@ -18,15 +18,25 @@ from keras.layers import Conv2D, Dropout
 from keras.layers.pooling import MaxPooling2D
 from keras.optimizers import Adam
 
+dir_path = os.path.dirname(os.path.realpath(__file__))
+
+# Path to Computer root directory
+ROOT_DIR = os.path.realpath(os.path.join(dir_path, '..'))
+
+sys.path.append(ROOT_DIR)
+from libraries.helpers import configuration
+
+config = configuration()
+
 # Look into Arduino code's car.h for SteerFeedMin_ and SteerFeedMax_
 STEER_MIN = 30
 STEER_MAX = 993
 
 # Make sure the target shape is the same with the one in driver/main.py
 # i.e. look for cams setup with variable CAP_PROP_FRAME_WIDTH and CAP_PROP_FRAME_HEIGHT.
-TARGET_WIDTH = 320
-TARGET_HEIGHT = 240
-TARGET_CROP = ((60, 20), (0, 0))
+TARGET_WIDTH = config['target_width']
+TARGET_HEIGHT = config['target_height']
+TARGET_CROP = config['target_crop']
 
 BATCH_SIZE=32
 EPOCHS=5

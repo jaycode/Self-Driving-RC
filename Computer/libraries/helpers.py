@@ -4,6 +4,17 @@ import h5py
 import serial
 from keras.models import load_model
 
+def configuration():
+    """ The car's configuration.
+
+    These are the settings that are used across scripts.
+    """
+    return {
+        'target_width': 320,
+        'target_height': 240,
+        'target_crop': ((60, 20), (0, 0)) # (top, bottom), (left, right)
+    }
+
 def choose_port(ports):
     """ Find a serial port that connects to arduino.
     """

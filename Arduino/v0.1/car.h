@@ -33,6 +33,8 @@ class Car {
     // Setter of curDriveMode_.
     void setCurDriveMode(uint8_t value);
 
+    void waitForSerial(int timeout=100);
+
   protected:
     // Listen to Throttle inputs (left vertical).
     void listenThro();

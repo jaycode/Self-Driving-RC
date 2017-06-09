@@ -1,10 +1,12 @@
 # To use, run:
 # `sudo su`
-# `python test.py --model [model-path] --dir [test-dir-path]`
+# `python test.py --model [model-path] --dir [test-dir-path] [-d]`
 
 # Set `dir` to a directory that contains the following:
 # - A directory with images to see how the car drives with these data.
 # - A csv file for ground truth.
+
+# When flag `-d` is included, send command to the actuators.
 
 import numpy as np
 import cv2
@@ -181,7 +183,7 @@ def main():
     print("MSE: {}".format(errors/len(stats['error'])))
     print("Results saved at", test_result_dir)
     plt.plot(stats['error'])
-    plt.title('model mean squared error loss (total: {})'.format(errors/len(stats['error'])))
+    plt.title('model root mean squared error loss (total: {})'.format(errors/len(stats['error'])))
     plt.ylabel('errors')
     plt.xlabel('time')
     plt.savefig(os.path.join(test_result_dir, 'errors.png'), bbox_inches='tight')

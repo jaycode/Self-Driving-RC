@@ -60,7 +60,7 @@ cams[0].set(cv2.CAP_PROP_FRAME_HEIGHT, TARGET_HEIGHT)
 
 # TODO: This is currently throttle value but we will update it once we got
 #       accelerometer.
-set_speed = 130
+set_speed = 45
 
 MIN_THROTTLE = 50
 MAX_THROTTLE = 130
@@ -201,7 +201,7 @@ def auto_drive_cams(port, controller, status, model, cams):
     else:
         throttle = int(throttle)
         new_steer = int(new_steer)
-        print("throttle: {} steer: {}".format(throttle, new_steer))
+        print("throttle: {}, steer: {}".format(throttle, new_steer))
         port.write(bytearray("{}{};".format(\
             HOST_AUTO_THROTTLE.decode(), str(throttle)), 'utf-8'))
         port.write(bytearray("{}{};".format(\
@@ -231,7 +231,7 @@ def main():
     previous_time = time.time()
     while True:
         loop_time = time.time()
-        print("single loop time:",loop_time-previous_time)
+        # print("single loop time:",loop_time-previous_time)
         previous_time = loop_time
         port.write(HOST_REQUEST_UPDATE)
         # non-blocking check whether device sends BEGIN
@@ -253,23 +253,24 @@ def main():
                     ret, frame = cams[0].read()
 
                     # Create image path.
+                    tstamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S.%f")
                     filename = "{}.jpg".format(tstamp)
-                    path = os.path.join(args.recorded_img_path, filename)
+                    path = os.path.join(args.recorded_img, filename)
 
                     # We put the makedirs here to ensure directory is created
                     # when re-recording without having to reset the script.
-                    os.makedirs(args.recorded_img_path, exist_ok=True)
+                    os.makedirs(args.recorded_img, exist_ok=True)
 
                     # Save image
                     cv2.imwrite(path, frame)
 
                     # Append to training data.
-                    if not os.path.isfile(args.recorded_csv_path):
+                    if not os.path.isfile(args.recorded_csv):
                         fd = open(args.recorded_csv_path, 'w')
                         head = "filename, steer, speed\n"
                         fd.write(head)
                     else:
-                        fd = open(args.recorded_csv_path,'a')
+                        fd = open(args.recorded_csv,'a')
                     row = "{}, {}, {}\n".format(filename, status['steer'], status['speed'])
                     fd.write(row)
                     fd.close()

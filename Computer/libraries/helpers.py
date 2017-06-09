@@ -1,4 +1,8 @@
+import numpy as np
+import cv2
+import h5py
 import serial
+from keras.models import load_model
 
 def choose_port(ports):
     """ Find a serial port that connects to arduino.

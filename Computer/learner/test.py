@@ -1,11 +1,9 @@
 # To use, run:
 # `sudo su`
-# `python test.py --model [model-path] --dir [test-dir-path] [-d] [-t]`
+# `python test.py [--model model-path] [--dir test-dir-path] [-d] [-t]`
 
 # === Model Path ===
-# `model-path` is the path to model definition json. Model weights should be
-# contained in the same path.
-
+# `model` is the path to model definition h5. Model definition is created by learner/learn.py script.
 
 # === Training Dir ===
 # Set `dir` to a directory that contains the following:
@@ -24,8 +22,6 @@ import cv2
 from datetime import datetime
 import os
 import argparse
-import h5py
-from keras.models import load_model
 import time
 import re
 import glob
@@ -39,7 +35,7 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 ROOT_DIR = os.path.realpath(os.path.join(dir_path, '..'))
 
 sys.path.append(ROOT_DIR)
-from libraries.helpers import choose_port
+from libraries.helpers import choose_port, preprocess, prepare_model
 
 # This is the smallest current camera may support.
 # (i.e. setting CAP_PROP_FRAME_WIDTH and HEIGHT smaller than this won't help)
@@ -86,34 +82,10 @@ class SimplePIController:
 controller = SimplePIController(THROTTLE_P, THROTTLE_I)
 controller.set_desired(set_speed)
 
-def prepare_model(model_path):
-    from keras import __version__ as keras_version
-    # check that model Keras version is same as local Keras version
-    f = h5py.File(model_path, mode='r')
-    model_version = f.attrs.get('keras_version')
-    keras_version = str(keras_version).encode('utf8')
-
-    if model_version != keras_version:
-        print('You are using Keras version ', keras_version,
-              ', but the model was built using ', model_version)
-
-    return load_model(model_path)
-
-def preprocess(raw_img):
-    # This should be similar to the one in drive.py
-    img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2HSV)[:, :, 2]
-    img = cv2.Sobel(img, -1, 0, 1, ksize=3)
-    img = img / 255.0
-    img = img > 0.5
-    img = np.array([img])
-    img = np.rollaxis(np.concatenate((img, img, img)), 0, 3)
-    return img[:, :, [0]]
-
-
 def main():
     parser = argparse.ArgumentParser(description='Remote Driving')
     parser.add_argument('model', type=str,
-        help="Path to model definition h5 file. Model weights should be contained in the same path.")
+        help="Path to model definition h5 file. Model definition is created by learner/learn.py script.")
     parser.add_argument('dir', type=str,
         help="Path to images and data to test the car with. " + \
         "This directory contains the following:\n" + \
@@ -122,10 +94,12 @@ def main():
         "Test results will then be created in this directory."
     )
     parser.add_argument('-d', action='store_true',
+        default='store_false',
         help="When flag `-d` is included, send command to the actuators. " +
         "This is useful to inspect how the car runs when given input data.\n" +
         "DON'T FORGET TO SET THE CAR TO \"AUTO\" MODE.")
     parser.add_argument('-t', action='store_true',
+        default='store_false',
         help="By default, this script does not actuate throttle. To allow it to"
         "send throttle commands, include flag `-t`.")
 
@@ -172,10 +146,7 @@ def main():
         counter = 0
         print("row count:", row_count)
         for i, row in enumerate(reader):
-            if allow_throttle:
-                speed = controller.update(speed)
-            else:
-                speed = 0
+            speed = controller.update(speed)
 
             frame_path = os.path.join(test_images_dir, row[0])
             frame = cv2.imread(frame_path)
@@ -215,8 +186,10 @@ def main():
             f3 = cv2.imread(save_path)
             text1 = "pred: {}".format(new_steer)
             text2 = "truth: {}".format(row[1])
+            text3 = "RMSE: {0:.2f}".format(error)
             f3 = cv2.putText(f3, text1, (10,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 210))
-            f3 = cv2.putText(f3, text2, (10,80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 150))
+            f3 = cv2.putText(f3, text2, (10,70), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 150))
+            f3 = cv2.putText(f3, text3, (10,90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (40, 50, 255))
 
             viz = np.concatenate((f3, frame), axis=0)
             save_path = os.path.join(test_result_imgs_dir, row[0])
@@ -230,10 +203,10 @@ def main():
                 sys.stdout.write("\r{0}".format("="*counter))
 
     print("\n")
-    print("Average RMSE: {}".format(errors/len(stats['error'])))
+    print("Average RMSE: {0:.2f}".format(errors/len(stats['error'])))
     print("Results saved at", test_result_dir)
     plt.plot(stats['error'])
-    plt.title('model root mean squared error loss (avg. {%.2f})'.format(errors/len(stats['error'])))
+    plt.title('model root mean squared error loss (avg. {0:.2f})'.format(errors/len(stats['error'])))
     plt.ylabel('errors')
     plt.xlabel('time')
     plt.savefig(os.path.join(test_result_dir, 'errors.png'), bbox_inches='tight')

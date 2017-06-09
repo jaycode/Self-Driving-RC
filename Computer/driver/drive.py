@@ -1,6 +1,13 @@
 # To use, run:
 # `sudo su`
-# `python drive.py --model [model-path] [-t]
+# `python drive.py [--model] [-t]
+
+# === Model Path ===
+# `model` is the path to model definition h5. Model definition is created by learner/learn.py script.
+
+# === Throttle ===
+# By default, this script does not actuate throttle. To allow it to
+# send throttle commands, include flag `-t`.
 
 # We cannot use any blocking here since some packets do disappear in the beginning.
 # Blocking happens in the microcontroller side.
@@ -10,21 +17,31 @@
 # - "Segmentation fault (core dumped)": h5 file created with python 3.6, drive.py uses python 3.5.
 # - "SystemError: unknown opcode": h5 file created with python 3.5, drive.py uses python 3.6.
 
-import serial
+import numpy as np
+import sys
 import cv2
 from datetime import datetime
 import os
 import argparse
-import h5py
 import time
 import re
 import glob
 import csv
 import pickle
 from keras.models import load_model
-import numpy as np
+from threading import Thread
+from queue import Queue
+import pdb
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
+
+# Path to Computer root directory
+ROOT_DIR = os.path.realpath(os.path.join(dir_path, '..'))
+
+sys.path.append(ROOT_DIR)
+from libraries.helpers import choose_port, preprocess, prepare_model
+
+# Path to calibration file
 CALIBRATION_FILE = os.path.realpath(os.path.join(dir_path, '..', 'calibrations', 'cal-elp.p'))
 with open( CALIBRATION_FILE, "rb" ) as pfile:
     cal = pickle.load(pfile)
@@ -46,7 +63,6 @@ DRIVE_MODE_AUTO = 0 # 0
 
 RECORDED_IMG_PATH = "/home/sku/recorded"
 RECORDED_CSV_PATH = "/home/sku/recorded.csv"
-cams = [cv2.VideoCapture(0)]
 
 # Try out several ports to find where the microcontroller is.
 ports = ["/dev/ttyUSB0", "/dev/ttyUSB1"]
@@ -55,8 +71,6 @@ ports = ["/dev/ttyUSB0", "/dev/ttyUSB1"]
 # (i.e. setting CAP_PROP_FRAME_WIDTH and HEIGHT smaller than this won't help)
 TARGET_WIDTH = 320
 TARGET_HEIGHT = 240
-cams[0].set(cv2.CAP_PROP_FRAME_WIDTH, TARGET_WIDTH)
-cams[0].set(cv2.CAP_PROP_FRAME_HEIGHT, TARGET_HEIGHT)
 
 # TODO: This is currently throttle value but we will update it once we got
 #       accelerometer.
@@ -67,23 +81,67 @@ MAX_THROTTLE = 130
 THROTTLE_P=0.3
 THROTTLE_I=0.08
 
-def choose_port(ports):
-    port_connected = False
-    port_idx = 0
-    while not port_connected:
-        try:
-            port = serial.Serial(ports[port_idx], baudrate=9600, timeout=0.05)
-            port_connected = True
-            print("Port {} connected!\n".format(ports[port_idx]))
-        except:
-            print("Port {} not connected".format(ports[port_idx]))
-            port_idx+=1;
-            if len(ports) > port_idx:
-                print(", trying {}...".format(ports[port_idx]))
+# Record latency in seconds.
+# This variable stores the time between each recording session. 
+# The larger this value, the more we accommodate recording time, which means the latency between
+# status and image collection (`rec_latency` field in `recorded.csv`) gets lower, but there will
+# be more time between each image recording.
+# Hence, good value needs to match the `rec_latency` field in `recorded.csv`, but not much more.
+# TODO: If less latency is needed, store the images and status in memory and then store them in batches.
+REC_LATENCY_SEC=0.3
+
+# === RECORDER ===
+# Record and process images in a separate thread
+img_queue = Queue(maxsize=128)
+
+def record(cams):
+    while True:
+        if img_queue.qsize() > 0:
+            item = img_queue.get()
+
+            # # We put the makedirs here to ensure directory is created
+            # # when re-recording without having to reset the script.
+            os.makedirs(item['img_dir_path'], exist_ok=True)
+
+            # Record this frame.
+            # No need to do image preprocessing here. We want the
+            # raw image and experiment with preprocessing later in
+            # training phase. The final preprocessing will then
+            # be implemented in the inference phase.
+            ret, frame = cams[0].read()
+
+            cv2.imwrite(item['img_path'], frame)
+            # Append to training data.
+            if not os.path.isfile(item['csv_path']):
+                fd = open(item['csv_path'], 'w')
+                head = "filename, steer, speed, rec_latency\n"
+                fd.write(head)
             else:
-                print("No other port to try.")
-                exit();
-    return port
+                fd = open(item['csv_path'],'a')
+            row = "{}, {}, {}, {}\n".format(item['img_name'], item['status']['steer'], item['status']['speed'], (time.time() - item['time']))
+            fd.write(row)
+            fd.close()
+            img_queue.task_done()
+
+# === END RECORDER ===
+
+def find_cams(num=1, n_ports=4):
+    """ Find active cameras
+    Args:
+    - num: Number of cameras to find.
+    - n_ports: Maximum number of ports to try.
+    """
+    cams = []
+    for i in range(n_ports):
+        cam = cv2.VideoCapture(i)
+        ret, img = cam.read()
+        if ret:
+            print("Camera {} online".format(i))
+            cams.append(cam)
+        if len(cams) == num:
+            break
+    return cams
+
 
 class SimplePIController:
     def __init__(self, Kp, Ki):
@@ -108,23 +166,6 @@ class SimplePIController:
 
 controller = SimplePIController(THROTTLE_P, THROTTLE_I)
 controller.set_desired(set_speed)
-
-def prepare_model(model_path):
-    from keras import __version__ as keras_version
-    # check that model Keras version is same as local Keras version
-    f = h5py.File(model_path, mode='r')
-    model_version = f.attrs.get('keras_version')
-    keras_version = str(keras_version).encode('utf8')
-
-    if model_version != keras_version:
-        print('You are using Keras version ', keras_version,
-              ', but the model was built using ', model_version)
-
-    # Load model routine may generate error due to incompatible python
-    # compiler used to generate model.h5 file:
-    # - "Segmentation fault (core dumped)": h5 file created with python 3.6, drive.py uses python 3.5.
-    # - "SystemError: unknown opcode": h5 file created with python 3.5, drive.py uses python 3.6.
-    return load_model(model_path)
 
 def read_status(port):
     status = {}
@@ -159,17 +200,7 @@ def read_status(port):
     status['steer'] = int(value)
     return status
 
-def preprocess(raw_img):
-    # This should be similar to the one in test.py
-    img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2HSV)[:, :, 2]
-    img = cv2.Sobel(img, -1, 0, 1, ksize=3)
-    img = img / 255.0
-    img = img > 0.5
-    img = np.array([img])
-    img = np.rollaxis(np.concatenate((img, img, img)), 0, 3)
-    return img[:, :, [0]]
-
-def auto_drive_cams(port, controller, status, model, cams):
+def auto_drive_cams(port, controller, status, model, cams, allow_throttle):
     global mtx, dist
     # Read image and do image preprocessing (when needed)
     ret, image = cams[0].read()
@@ -202,8 +233,10 @@ def auto_drive_cams(port, controller, status, model, cams):
         throttle = int(throttle)
         new_steer = int(new_steer)
         print("throttle: {}, steer: {}".format(throttle, new_steer))
-        port.write(bytearray("{}{};".format(\
-            HOST_AUTO_THROTTLE.decode(), str(throttle)), 'utf-8'))
+        if not allow_throttle:
+            print("throttling")
+            port.write(bytearray("{}{};".format(\
+                HOST_AUTO_THROTTLE.decode(), str(throttle)), 'utf-8'))
         port.write(bytearray("{}{};".format(\
             HOST_AUTO_STEER.decode(), str(new_steer)), 'utf-8'))
 
@@ -213,20 +246,37 @@ def main():
 
     parser = argparse.ArgumentParser(description='Remote Driving')
     parser.add_argument('--model', type=str,
-        help="Path to model definition json. Model weights should be on the same path.")
+        help="Path to model definition h5 file. Model definition is created by learner/learn.py script.")
     parser.add_argument('--recorded-img', type=str,
         default=RECORDED_IMG_PATH,
-        help="Path to model definition json. Model weights should be on the same path.")
+        help="Path to recorded image's directory.")
     parser.add_argument('--recorded-csv', type=str,
         default=RECORDED_CSV_PATH,
-        help="Path to model definition json. Model weights should be on the same path.")
-    
+        help="Path to recorded csv file.")
+    parser.add_argument('-t', action='store_true',
+        default='store_false',
+        help="By default, this script does not actuate throttle. To allow it to"
+        "send throttle commands, include flag `-t`.")
+
     args = parser.parse_args()
     if args.model:
         model = prepare_model(args.model)
     else:
         print("Warning: No model has been defined. AUTO mode is disabled.\n"+\
               "Add --model [path to json file] to load a model.")
+
+    allow_throttle = args.t
+
+    cams = find_cams(num=1, n_ports=4)
+    for cam in cams:
+        cam.set(cv2.CAP_PROP_FRAME_WIDTH, TARGET_WIDTH)
+        cam.set(cv2.CAP_PROP_FRAME_HEIGHT, TARGET_HEIGHT)
+
+    if len(cams) == 0:
+        raise Exception("Camera is not properly connected. It usually helps to re-plug its USB cable.")
+
+    img_thread = Thread(target=record, args=[cams])
+    img_thread.start()
 
     previous_time = time.time()
     while True:
@@ -245,38 +295,41 @@ def main():
                 print(status)
                 
                 if status['mode'] == DRIVE_MODE_RECORDED:
-                    # Record this frame.
-                    # No need to do image preprocessing here. We want the
-                    # raw image and experiment with preprocessing later in
-                    # training phase. The final preprocessing will then
-                    # be implemented in the inference phase.
-                    ret, frame = cams[0].read()
-
                     # Create image path.
                     tstamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S.%f")
                     filename = "{}.jpg".format(tstamp)
                     path = os.path.join(args.recorded_img, filename)
 
-                    # We put the makedirs here to ensure directory is created
-                    # when re-recording without having to reset the script.
-                    os.makedirs(args.recorded_img, exist_ok=True)
-
                     # Save image
-                    cv2.imwrite(path, frame)
 
-                    # Append to training data.
-                    if not os.path.isfile(args.recorded_csv):
-                        fd = open(args.recorded_csv_path, 'w')
-                        head = "filename, steer, speed\n"
-                        fd.write(head)
-                    else:
-                        fd = open(args.recorded_csv,'a')
-                    row = "{}, {}, {}\n".format(filename, status['steer'], status['speed'])
-                    fd.write(row)
-                    fd.close()
+                    # # This is really slow, so we keep the images in a buffer instead.
+                    # # cv2.imwrite(path, frame)
+                    # # Append to training data.
+                    # if not os.path.isfile(args.recorded_csv):
+                    #     fd = open(args.recorded_csv_path, 'w')
+                    #     head = "filename, steer, speed\n"
+                    #     fd.write(head)
+                    # else:
+                    #     fd = open(args.recorded_csv,'a')
+                    # row = "{}, {}, {}\n".format(filename, status['steer'], status['speed'])
+                    # fd.write(row)
+                    # fd.close()
+
+                    img_queue.put({
+                        'csv_path': args.recorded_csv,
+                        'img_dir_path': args.recorded_img,
+                        'img_name': filename,
+                        'img_path': path,
+                        'status': status,
+                        'time': time.time()
+                    })
+
+                    time.sleep(REC_LATENCY_SEC)
                 elif status['mode'] == DRIVE_MODE_AUTO:
-                    # Inference phase                        
-                    auto_drive_cams(port, controller, status, model, cams)
+                    # Inference phase
+                    auto_time_1 = time.time()
+                    auto_drive_cams(port, controller, status, model, cams, allow_throttle)
+                    print("auto latency:", (time.time() - auto_time_1))
 
 if __name__ == "__main__":
     main()

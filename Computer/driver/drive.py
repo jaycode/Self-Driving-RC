@@ -143,6 +143,11 @@ def record(cams):
             fd.write(row)
             fd.close()
             img_queue.task_done()
+            if item['visualize']:
+                # Preprocessing
+                final_img = preprocess(frame)
+                draw_visualization(final_img, frame, steer=item['status']['steer'])
+
 
 # === END RECORDER ===
 
@@ -337,16 +342,11 @@ def main():
                         'img_name': filename,
                         'img_path': path,
                         'status': status,
-                        'time': time.time()
+                        'time': time.time(),
+                        'visualize': visualize
                     })
 
                     time.sleep(REC_LATENCY_SEC)
-                    if visualize:
-                        ret, image = cams[0].read()
-
-                        # Preprocessing
-                        final_img = preprocess(image)
-                        draw_visualization(final_img, image, steer=status['steer'])
 
                 elif status['mode'] == DRIVE_MODE_AUTO:
                     # Inference phase

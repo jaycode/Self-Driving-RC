@@ -40,13 +40,14 @@ void Car::listen() {
 //  curSpeed_ = 
 
   listenComputer();
+  listenThro(); // throttling left joystick
+  listenElev(); // throttling right joystick
+  accelerate(throSpeed_+elevSpeed_);
   if (curDriveMode_ != DRIVE_MODE_AUTO) {
-//     We set steer speed as 0 here to allow for two joysticks controlling the steering wheel.
+    // We set steer speed as 0 here in anticipation to
+    // later allow for two joysticks controlling the steering wheel.
     steerSpeed_ = 0;
-    listenThro(); // throttling left joystick
-    listenElev(); // throttling right joystick
     listenAile(); // steering right joystick
-    accelerate(throSpeed_+elevSpeed_);
     steer(steerSpeed_);
   }
   else if (curDriveMode_ == DRIVE_MODE_AUTO) {
@@ -199,22 +200,20 @@ String Car::getStatus() {
   return str;
 }
 
-//void Car::listenComputer() {
-//  while (Serial.available() == 0);
-//  char cmd = Serial.read();
-//  Serial.print(cmd);
-//  if (cmd == 's') {
-//    for (int i=0; i<5; i++) {
-//      while (Serial.available() == 0);
-//      char pos = Serial.read();
-//      Serial.print(pos);
-//    }
-//    Serial.print('\n');
-//  }
-//}
+void Car::waitForSerial(int timeout/*=100*/) {
+  if (curDriveMode_ != DRIVE_MODE_MANUAL) {
+    int c = 0;
+    while (Serial.available() == 0) {
+      c++;
+      if (c > timeout) {
+        break;
+      }
+    }
+  }
+}
 
 void Car::listenComputer() {
-  while (Serial.available() == 0);
+  waitForSerial();
   char hostCmd = Serial.read();
   if (hostCmd == HOST_REQUEST_UPDATE) {
     sendCommand(DEV_STATUS, getStatus());
@@ -222,41 +221,27 @@ void Car::listenComputer() {
   else if (hostCmd == HOST_AUTO_STEER) {
     String pos; // 0000 to 1023
     for (int i=0; i<5; i++) {
-      while (Serial.available() == 0);
+      waitForSerial();
       char c = Serial.read();
-//      Serial.print(c);
+      if (c == ';') {
+        break;
+      }
       pos += c;
     }
     int v = pos.toInt();
     steerTo(v);
-//    Serial.print('\n');
-
-//    while (Serial.available() < 5);
-//    
-//    byte num = Serial.readBytesUntil(';', pos, 5);
-//    if (num > 0) {
-//      String s = pos;
-//      int v = s.toInt();
-//      sendCommand(DEV_DEBUG, pos);
-//      steerTo(v);
-////        steerTo(100);
-//
-//    }
   }
   else if (hostCmd == HOST_AUTO_THROTTLE) {
-    char thro[4]; // -255 to +255
-//    while (Serial.available() < 5);
-    byte num = Serial.readBytesUntil(';', thro, 5);
-    if (num > 0) {
-      String s = thro;
-      int v = s.toInt();
-      accelerate(v);
+    String thro; // -255 to 255
+    for (int i=0; i<4; i++) {
+      waitForSerial();
+      char c = Serial.read();
+      if (c == ';') {
+        break;
+      }
+      thro += c;
     }
+    int v = thro.toInt();
+    accelerate(v);
   }
-//  else {
-//    // If it does not understand the command the computer gave,
-//    // return the command back. This is needed to give a "kick"
-//    // on the first loop.
-//    sendCommand(DEV_DEBUG, hostCmd);
-//  }
 }

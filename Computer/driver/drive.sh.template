@@ -1,0 +1,5 @@
+DIR="$( cd "$( dirname "$0" )" && pwd )"
+python "$DIR"/drive.py \
+--model /home/sku/model.h5 \
+--recorded-img /home/sku/recorded \
+--recorded-csv /home/sku/recorded.csv

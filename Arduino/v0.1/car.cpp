@@ -143,7 +143,7 @@ void Car::steerTo(int steerPos) {
 }
 
 void Car::autoSteer() {
-  int slack = 30;
+  int slack = 10;
 //  Serial.print("feed: ");
 //  Serial.print(curSteerFeed_);
 //  Serial.print(" target: ");
@@ -156,9 +156,9 @@ void Car::autoSteer() {
 //    Serial.println("adjust");
     // To avoid oscillation, decrease the speed when closer to position.
     float speed = steerMax_ * fabs(curSteerFeed_ - targetSteer_) / float(steerFeedMax_ - steerFeedMin_);
-    if (speed < 150) {
-      speed /= 3;
-    }
+//    if (speed < 150) {
+//      speed /= 3;
+//    }
 //    Serial.println(speed);
     if (curSteerFeed_ > targetSteer_) {
       steer(-speed);

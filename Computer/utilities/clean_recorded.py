@@ -13,6 +13,11 @@ RECORDED_DIR = "/home/sku/recorded"
 RECORDED_CSV = "/home/sku/recorded.csv"
 RECORDED_EDIT_CSV = "/home/sku/recorded.edit.csv"
 
+# data with latency higher than this will be removed.
+LATENCY_THRESHOLD = 0.5
+REC_LATENCY_FIELD_ID = 3
+FILENAME_FIELD_ID = 0
+
 def remove_images(imgs, i_rows):
     images_to_remove = []
     rows = copy.copy(i_rows)
@@ -22,7 +27,7 @@ def remove_images(imgs, i_rows):
         name = os.path.basename(img)
         found = False
         for i, row in enumerate(rows):
-            if row[0] == name:
+            if row[FILENAME_FIELD_ID] == name:
                 found = name
                 rows.pop(i)
                 break
@@ -43,23 +48,36 @@ def remove_rows(i_imgs, rows):
         found = False
         for i, img in enumerate(imgs):
             name = os.path.basename(img)
-            if name == row[0]:
+            if name == row[FILENAME_FIELD_ID]:
                 found = img
                 imgs.pop(i)
                 break
         if not found:
-            if row[0] != 'filename': # do not remove header
+            if row[FILENAME_FIELD_ID] != 'filename': # do not remove header
                 total += 1
-                print(row[0])
+                print(row[FILENAME_FIELD_ID])
                 rows_to_remove.append(row)
     if total == 0:
         print("None")
     return rows_to_remove
 
+def remove_hilat(imgs, rows):
+    data_to_remove = []
+    print("High latency data (>{})".format(LATENCY_THRESHOLD))
+    for row in rows:
+        try:
+            if float(row[REC_LATENCY_FIELD_ID]) > LATENCY_THRESHOLD:
+                print(row[FILENAME_FIELD_ID])
+                data_to_remove.append(row[FILENAME_FIELD_ID])
+        except:
+            pass
+    return data_to_remove
+
 def main():
     parser = argparse.ArgumentParser(description='Clean recorded data')
     parser.add_argument('-r', action='store_true',
-        help="Remove inconsistent data.")
+        default=False,
+        help="When this flag is included, remove the images and rows for real.")
     parser.add_argument('--dir', type=str,
         default=RECORDED_DIR,
         help="Path to recorded directory that contains images")
@@ -97,28 +115,39 @@ def main():
 
         for row in duplicate_rows:
             print(row)
+
+        # Remove high latency data
+        hilat_data = remove_hilat(imgs, rows)
+
         print("")
+        print("Rows: {} Images: {}".format((row_count-1), img_count)) # account for header in row count.
         print("total duplicate rows:", len(duplicate_rows))
         # TODO: Remove duplicated rows when there is a scenario that requires so.
 
         print("total inconsistent rows:", len(rows_to_remove))
         print("total inconsistent images:", len(images_to_remove))
-        print("Rows: {} Images: {}".format(row_count, img_count))
+        print("Total high-latency data (>{}): {}".format(LATENCY_THRESHOLD, len(hilat_data)))
 
         if remove:
             total = 0
             writer = csv.writer(out)
-            for final_row in [row for row in rows if row not in rows_to_remove]:
+            for final_row in [row for row in rows if (row not in rows_to_remove and row[FILENAME_FIELD_ID] not in hilat_data)]:
                 writer.writerow(final_row)
                 total += 1
 
-            print("Saved {} rows into file {}".format(total, recorded_edit_csv))
+            print("Saved {} rows into file {} (you need to manually replace the original csv)".format(total, recorded_edit_csv))
 
             total = 0
             for img in images_to_remove:
                 total += 1
                 os.remove(img)
             print("removed {} images".format(total))
+
+            for img in hilat_data:
+                total += 1
+                path = os.path.join(recorded_dir, img)
+                os.remove(path)
+            print("removed {} images of high-latency data".format(total))
 
 if __name__ == "__main__":
     main()

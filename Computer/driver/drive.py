@@ -262,13 +262,20 @@ def auto_drive_cams(port, controller, status, model, cams, allow_throttle, visua
         if allow_throttle:
             port.write(bytearray("{}{};".format(\
                 HOST_AUTO_THROTTLE.decode(), str(throttle)), 'utf-8'))
+        # if new_steer > 512:
+        #     new_steer -= 812
+        # else:
+        #     new_steer -= 400
+        new_steer = min(new_steer, 1023)
+        new_steer = max(new_steer, 0)
+        # new_steer = 0
         port.write(bytearray("{}{};".format(\
             HOST_AUTO_STEER.decode(), str(new_steer)), 'utf-8'))
 
         # Visualize
 
         if visualize:
-            draw_visualization(final_image, image, steer=new_steer)
+            draw_visualization(final_img, image, steer=new_steer)
 
 def main():
     port = choose_port(ports)

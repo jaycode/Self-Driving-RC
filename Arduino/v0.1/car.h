@@ -83,8 +83,10 @@ class Car {
     int steerSpeed_ = 0;
 
     int curSteerFeed_ = 0;
-    int steerFeedMin_ = 30;
-    int steerFeedMax_ = 993;
+//    int steerFeedMin_ = 30;
+//    int steerFeedMax_ = 993;
+    int steerFeedMin_ = 0;
+    int steerFeedMax_ = 1023;
     int steerSlack_ = 1;
 
     uint8_t curDriveMode_ = 0;

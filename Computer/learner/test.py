@@ -1,9 +1,12 @@
 # To use, run:
 # `sudo su`
-# `python test.py [--model model-path] [--dir test-dir-path] [-d] [-t]`
+# `python test.py [--models model-paths] [--dir test-dir-path] [-d] [-t]`
 
-# === Model Path ===
-# `model` is the path to model definition h5. Model definition is created by learner/learn.py script.
+# === Model Paths ===
+# `models` is the list of paths to model definition h5.
+# Model definition is created by learner/learn.py script.
+# The resulting prediction is going to be the average of all of the
+# predictions.
 
 # === Training Dir ===
 # Set `dir` to a directory that contains the following:
@@ -85,9 +88,8 @@ controller = SimplePIController(THROTTLE_P, THROTTLE_I)
 controller.set_desired(set_speed)
 
 def main():
+    models = []
     parser = argparse.ArgumentParser(description='Remote Driving')
-    parser.add_argument('model', type=str,
-        help="Path to model definition h5 file. Model definition is created by learner/learn.py script.")
     parser.add_argument('dir', type=str,
         help="Path to images and data to test the car with. " + \
         "This directory contains the following:\n" + \
@@ -95,6 +97,12 @@ def main():
         "- A csv file for ground truth.\n\n" + \
         "Test results will then be created in this directory."
     )
+    parser.add_argument('--models', type=str,
+        nargs='+',
+        help="list of paths to model definition h5. " + \
+        "Model definition is created by learner/learn.py script. " + \
+        "The resulting prediction is going to be the average of all of the " + \
+        "predictions.")
     parser.add_argument('-d', action='store_true',
         default=False,
         help="When flag `-d` is included, send command to the actuators. " +
@@ -112,8 +120,12 @@ def main():
     if allow_drive:
         port = choose_port(ports)
 
-    # Prepare model
-    model = prepare_model(args.model)
+    # Prepare models
+    if not args.models:
+        raise Exception("[--models] parameter is needed")
+    else:
+        for model_path in args.models:
+            models.append(prepare_model(model_path))
 
     # Setup test dir and all path related variables.
     test_dir = args.dir
@@ -130,13 +142,17 @@ def main():
     # For debugging latency.
     previous_time = time.time()
 
-    errors = 0.0
+    # total squared error
+    t_se = 0.0
+    # total root squared error
+    t_rse = 0.0
     speed = 0.0
     stats = {
         'id': [],
         'throttle': [],
         'steer': [],
-        'error': [],
+        'rse': [],
+        'se': []
     }
 
     with open(test_image_csv, 'r') as csvfile:
@@ -155,14 +171,21 @@ def main():
             final_img = preprocess(frame)
             img_array = np.asarray(final_img)[None, :, :, :]
 
-            prediction = model.predict(\
-                img_array, batch_size=1)
-
-            new_steer = prediction[0][0]
-            error = math.sqrt((float(row[1]) - new_steer)**2)
-            errors += error
+            new_steer_total = 0
+            for model in models:
+                prediction = model.predict(\
+                    img_array, batch_size=1)
+                new_steer_total += prediction[0][0]
+            new_steer = new_steer_total / len(models)
+            # squared error
+            se = (float(row[1]) - new_steer)**2
+            # root squared error
+            rse = math.sqrt(se)
+            t_se += se
+            t_rse += rse
             stats['steer'].append(new_steer)
-            stats['error'].append(error)
+            stats['se'].append(se)
+            stats['rse'].append(t_rse)
             stats['id'].append(row[0])
             stats['throttle'].append(speed)
 
@@ -184,10 +207,12 @@ def main():
 
             text1 = "pred: {}".format(new_steer)
             text2 = "truth: {}".format(row[1])
-            text3 = "RMSE: {0:.2f}".format(error)
+            text3 = "Squared-Error: {0:.2f}".format(se)
+            text4 = "Root-Squared-Error: {0:.2f}".format(rse)
             f3 = cv2.putText(f3, text1, (10,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 210))
             f3 = cv2.putText(f3, text2, (10,70), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 150))
             f3 = cv2.putText(f3, text3, (10,90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (40, 50, 255))
+            f3 = cv2.putText(f3, text4, (10,110), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (40, 50, 255))
 
             viz = np.concatenate((f3, frame), axis=0)
 
@@ -202,13 +227,14 @@ def main():
                 sys.stdout.write("\r{0}".format("="*counter))
 
     print("\n")
-    print("Average RMSE: {0:.2f}".format(errors/len(stats['error'])))
+    print("MSE: {0:.2f}".format(t_se/len(stats['se'])))
+    print("RMSE: {0:.2f}".format(t_rse/len(stats['rse'])))
     print("Results saved at", test_result_dir)
-    plt.plot(stats['error'])
-    plt.title('model root mean squared error loss (avg. {0:.2f})'.format(errors/len(stats['error'])))
-    plt.ylabel('errors')
+    plt.plot(stats['se'])
+    plt.title('model squared error loss (mean: {0:.2f})'.format(t_se/len(stats['se'])))
+    plt.ylabel('squared error')
     plt.xlabel('time')
-    plt.savefig(os.path.join(test_result_dir, 'errors.png'), bbox_inches='tight')
+    plt.savefig(os.path.join(test_result_dir, 'MSE.png'), bbox_inches='tight')
     plt.show()
 
     plt.plot(stats['steer'])

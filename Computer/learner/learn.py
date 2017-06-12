@@ -1,3 +1,4 @@
+import sys
 import tensorflow as tf
 import csv
 import cv2
@@ -77,6 +78,8 @@ parser.add_argument('--data-dirs', type=str,
 args = parser.parse_args()
 data_dirs = args.data_dirs
 model_h5 = args.model
+model_dir = os.path.dirname(model_h5)
+os.makedirs(model_dir, exist_ok=True)
 
 lines = []
 csv_files = data_dirs
@@ -157,9 +160,13 @@ def generator(samples, batch_size=32):
 train_generator = generator(train_samples, batch_size=BATCH_SIZE)
 validation_generator = generator(validation_samples, batch_size=BATCH_SIZE)
 
-if os.path.exists(MODEL_H5):
-    model = load_model(MODEL_H5)
+tb = keras.callbacks.TensorBoard(
+    log_dir=os.path.join(model_dir, 'graph'), histogram_freq=0,  
+    write_graph=True, write_images=True)
+if os.path.exists(model_h5):
+    model = load_model(model_h5)
 else:
+
     # Model building
     model = Sequential()
     model.add(Lambda(lambda x: x/255.0,
@@ -171,14 +178,21 @@ else:
 
     model.add(Cropping2D(cropping=TARGET_CROP))
     model.add(Conv2D(24, (5, 5), strides=(2,2), activation='relu'))
+    # model.add(MaxPooling2D())
+    model.add(Dropout(0.7))
     model.add(Conv2D(36, (5, 5), strides=(2,2), activation='relu'))
+    # model.add(MaxPooling2D())
     model.add(Conv2D(48, (5, 5), strides=(2,2), activation='relu'))
+    # model.add(MaxPooling2D())
+    model.add(Dropout(0.7))
     model.add(Conv2D(64, (3, 3), activation='relu'))
     model.add(Conv2D(64, (3, 3), activation='relu'))
+    model.add(Dropout(0.7))
     model.add(Flatten())
-    model.add(Dense(100))
-    model.add(Dense(50))
-    model.add(Dense(10))
+    model.add(Dense(1024))
+    model.add(Dropout(0.7))
+    model.add(Dense(256))
+    model.add(Dense(128))
     model.add(Dense(1))
     
     # P3 Jay
@@ -217,17 +231,17 @@ else:
     # model.add(Dense(1))
 
 model.summary()
-if os.path.exists(MODEL_H5):
-    print("Load existing model", MODEL_H5)
+if os.path.exists(model_h5):
+    print("Load existing model", model_h5)
 else:
-    print("Create a new model at", MODEL_H5)
+    print("Create a new model at", model_h5)
 
 optimizer = Adam()
 model.compile(loss='mse', optimizer=optimizer)
 history_object = model.fit_generator(train_generator, steps_per_epoch=len(train_samples),
     validation_data=validation_generator, validation_steps=len(validation_samples),
-    epochs=EPOCHS)
-model.save(MODEL_H5)
+    epochs=EPOCHS, callbacks=[tb])
+model.save(model_h5)
 
 # Plotting
 print(history_object.history.keys())
@@ -237,5 +251,5 @@ plt.title('model mean squared error loss')
 plt.ylabel('mean squared error loss')
 plt.xlabel('epoch')
 plt.legend(['training set', 'validation set'], loc='upper right')
-plt.savefig("{}.result.png".format(MODEL_H5), bbox_inches='tight')
+plt.savefig("{}.result.png".format(model_h5), bbox_inches='tight')
 plt.show()

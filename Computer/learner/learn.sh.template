@@ -3,3 +3,6 @@ python "$DIR"/learn.py \
 /home/jay/Self-Driving-RC-Data/model.h5 \
 --data-dirs /home/jay/Self-Driving-RC-Data/recorded-2017-06-01.01/ \
  /home/jay/Self-Driving-RC-Data/recorded-2017-06-04/
+
+# Run the following in another terminal
+# tensorboard --logdir /home/jay/Self-Driving-RC-Data/graph

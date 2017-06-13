@@ -1,30 +1,10 @@
-# General Adversarial Network training.
+# General Adversarial Network.
 # Run `example.py` script to show some example generated images.
 import os, sys
 from keras.models import Sequential, load_model
 from keras.layers import Flatten, Dense, Lambda, Cropping1D, Cropping2D
 from keras.layers import Conv2D, Dropout, BatchNormalization
 from keras.layers.pooling import MaxPooling2D
-
-dir_path = os.path.dirname(os.path.realpath(__file__))
-
-# Path to Computer root directory
-ROOT_DIR = os.path.realpath(os.path.join(dir_path, '..'))
-
-sys.path.append(ROOT_DIR)
-from libraries.helpers import configuration, preprocess
-from libraries.models import simple_cnn
-
-config = configuration()
-
-# Make sure the target shape is the same with the one in driver/main.py
-# i.e. look for cams setup with variable CAP_PROP_FRAME_WIDTH and CAP_PROP_FRAME_HEIGHT.
-TARGET_WIDTH = config['target_width']
-TARGET_HEIGHT = config['target_height']
-TARGET_CROP = config['target_crop']
-STEER_MIN = config['steer_min']
-STEER_MAX = config['steer_max']
-CHANNELS = config['channels']
 
 class GAN(object):
     def __init__(self, generator, discriminator, model_h5=None):

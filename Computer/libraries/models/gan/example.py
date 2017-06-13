@@ -1,13 +1,23 @@
 import os, sys
 
-# Load models directory
+# Load libraries directory
 dir_path = os.path.dirname(os.path.realpath(__file__))
-MODELS_DIR = os.path.realpath(os.path.join(dir_path, '..'))
-sys.path.append(MODELS_DIR)
+ROOT_DIR = os.path.realpath(os.path.join(dir_path, '..', '..', '..'))
+sys.path.append(ROOT_DIR)
+from libraries.helpers import configuration, preprocess
+from libraries.models import simple_cnn, simple_cnn_generator
+from libraries.models.gan import GAN
 
-import simple_cnn, simple_cnn_generator
+config = configuration()
 
-import GAN
+# Make sure the target shape is the same with the one in driver/main.py
+# i.e. look for cams setup with variable CAP_PROP_FRAME_WIDTH and CAP_PROP_FRAME_HEIGHT.
+TARGET_WIDTH = config['target_width']
+TARGET_HEIGHT = config['target_height']
+TARGET_CROP = config['target_crop']
+STEER_MIN = config['steer_min']
+STEER_MAX = config['steer_max']
+CHANNELS = config['channels']
 
 def data_generator(samples, batch_size=32):
     steer_range = STEER_MAX - STEER_MIN
@@ -53,8 +63,8 @@ def data_generator(samples, batch_size=32):
             y_train = np.array(measurements)
             yield shuffle(X_train, y_train)
 
-train_generator = generator(train_samples, batch_size=BATCH_SIZE)
-validation_generator = generator(validation_samples, batch_size=BATCH_SIZE)
+train_generator = data_generator(train_samples, batch_size=BATCH_SIZE)
+validation_generator = data_generator(validation_samples, batch_size=BATCH_SIZE)
 
 def main():
     # Preparation
@@ -67,10 +77,10 @@ def main():
     model_h5 = args.model
 
     # Model init
-    generator = simple_cnn_generator(TARGET_WIDTH, TARGET_HEIGHT, CHANNELS, TARGET_CROP)
-    discriminator = simple_cnn(TARGET_WIDTH, TARGET_HEIGHT, CHANNELS, TARGET_CROP)
+    generator_model = simple_cnn_generator(TARGET_WIDTH, TARGET_HEIGHT, CHANNELS, TARGET_CROP)
+    discriminator_model = simple_cnn(TARGET_WIDTH, TARGET_HEIGHT, CHANNELS, TARGET_CROP)
 
-    gan = GAN(generator, discriminator)
+    gan = GAN(generator_model, discriminator_model)
 
 
     # # Callbacks

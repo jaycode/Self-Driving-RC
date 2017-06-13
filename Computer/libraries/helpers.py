@@ -12,7 +12,12 @@ def configuration():
     return {
         'target_width': 320,
         'target_height': 240,
-        'target_crop': ((60, 20), (0, 0)) # (top, bottom), (left, right)
+        'target_crop': ((120, 10), (0, 0)), # (top, bottom), (left, right)
+        # Look into Arduino code's car.h for SteerFeedMin_ and SteerFeedMax_
+        'steer_min': 0,
+        'steer_max': 1023,
+        # Number of image channels.
+        'channels': 1
     }
 
 def choose_port(ports):
@@ -54,21 +59,28 @@ def prepare_model(model_path):
     # - "SystemError: unknown opcode": h5 file created with python 3.5, drive.py uses python 3.6.
     return load_model(model_path)
 
-def preprocess(raw_img):
+def preprocess(img_raw):
     """ Preprocess images.
 
-    Image outputted by this function should be converted as follows:
-    ```
-    img = preprocess(raw_image)
-    img_array = np.asarray(img)[None, :, :, :]
-    ```
-    before being used as input by the model.
-
+    Make sure to change "channels" in configuration() function to follow suit.
     """
-    img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2HSV)[:, :, 2]
-    img = cv2.Sobel(img, -1, 0, 1, ksize=3)
+    img = cv2.cvtColor(img_raw, cv2.COLOR_BGR2HSV)[:, :, 1]
+    img = cv2.Sobel(img, -1, 1, 0, ksize=3)
     img = img / 255.0
     img = img > 0.5
-    img = np.array([img])
-    img = np.rollaxis(np.concatenate((img, img, img)), 0, 3)
-    return img[:, :, [0]]
+    
+    img1 = cv2.cvtColor(img_raw, cv2.COLOR_BGR2HSV)[:, :, 2]
+    img1 = cv2.Sobel(img1, -1, 0, 1, ksize=3)
+    img1 = img1 / 255.0
+    img1 = img1 > 0.5
+
+    img_final = (img==1) | (img1==1)
+    img_final = np.array([img_final])
+    img_final = np.rollaxis(np.concatenate((img_final, img_final, img_final)), 0, 3)
+    return img_final[:, :, [0]]
+
+# def preprocess(img_raw):
+#     """ Preprocess images.
+#     """    
+#     img_final = cv2.cvtColor(img_raw, cv2.COLOR_BGR2HSV)
+#     return img_final

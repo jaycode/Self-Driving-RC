@@ -13,10 +13,6 @@ from sklearn.model_selection import train_test_split
 import pickle
 
 import keras
-from keras.models import Sequential, load_model
-from keras.layers import Flatten, Dense, Lambda, Cropping1D, Cropping2D
-from keras.layers import Conv2D, Dropout
-from keras.layers.pooling import MaxPooling2D
 from keras.optimizers import Adam
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -25,22 +21,22 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 ROOT_DIR = os.path.realpath(os.path.join(dir_path, '..'))
 
 sys.path.append(ROOT_DIR)
-from libraries.helpers import configuration
+from libraries.helpers import configuration, preprocess
+from libraries.models import simple_cnn
 
 config = configuration()
-
-# Look into Arduino code's car.h for SteerFeedMin_ and SteerFeedMax_
-STEER_MIN = 30
-STEER_MAX = 993
 
 # Make sure the target shape is the same with the one in driver/main.py
 # i.e. look for cams setup with variable CAP_PROP_FRAME_WIDTH and CAP_PROP_FRAME_HEIGHT.
 TARGET_WIDTH = config['target_width']
 TARGET_HEIGHT = config['target_height']
 TARGET_CROP = config['target_crop']
+STEER_MIN = config['steer_min']
+STEER_MAX = config['steer_max']
+CHANNELS = config['channels']
 
 BATCH_SIZE=32
-EPOCHS=5
+EPOCHS=40
 
 DATA_DIRS = [
 # "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1\\",
@@ -67,10 +63,10 @@ with open( CALIBRATION_FILE, "rb" ) as pfile:
 mtx = cal['mtx']
 dist = cal['dist']
 
-parser = argparse.ArgumentParser(description='Preprocess images')
+parser = argparse.ArgumentParser(description='Learn')
 parser.add_argument('model', type=str,
     default=MODEL_H5,
-    help="Path to output model H5 file e.g. `/home/user/model.h5`.")
+    help="Path to output model H5 file e.g. `/home/user/model.h5`. Load the file as base if it exists.")
 parser.add_argument('--data-dirs', type=str,
     default=DATA_DIRS,
     nargs='+',
@@ -104,14 +100,14 @@ for i, data_dir in enumerate(data_dirs):
 
 train_samples, validation_samples = train_test_split(lines, test_size=0.2)
 
-def preprocess(raw_img):
-    img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2HSV)[:, :, 2]
-    img = cv2.Sobel(img, -1, 0, 1, ksize=3)
-    img = img / 255.0
-    img = img > 0.5
-    img = np.array([img])
-    img = np.rollaxis(np.concatenate((img, img, img)), 0, 3)
-    return img[:, :, [0]]
+# def preprocess(raw_img):
+#     img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2HSV)[:, :, 2]
+#     img = cv2.Sobel(img, -1, 0, 1, ksize=3)
+#     img = img / 255.0
+#     img = img > 0.5
+#     img = np.array([img])
+#     img = np.rollaxis(np.concatenate((img, img, img)), 0, 3)
+#     return img[:, :, [0]]
 
 def generator(samples, batch_size=32):
     steer_range = STEER_MAX - STEER_MIN
@@ -161,76 +157,13 @@ train_generator = generator(train_samples, batch_size=BATCH_SIZE)
 validation_generator = generator(validation_samples, batch_size=BATCH_SIZE)
 
 tb = keras.callbacks.TensorBoard(
-    log_dir=os.path.join(model_dir, 'graph'), histogram_freq=0,  
-    write_graph=True, write_images=True)
-if os.path.exists(model_h5):
-    model = load_model(model_h5)
-else:
+     log_dir=os.path.join(model_dir, 'graph'), histogram_freq=0,  
+     write_graph=True, write_images=True)
+es = keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=3, verbose=0, mode='auto')
 
-    # Model building
-    model = Sequential()
-    model.add(Lambda(lambda x: x/255.0,
-        input_shape=(TARGET_HEIGHT,TARGET_WIDTH, 1)))
-    # YUV Normalization
-    # model.add(Lambda(
-    # lambda x: (x - 16) / (np.matrix([235.0, 240.0, 240.0]) - 16) - 0.5,
-    # input_shape=(TARGET_HEIGHT,TARGET_WIDTH, 3)))
-
-    model.add(Cropping2D(cropping=TARGET_CROP))
-    model.add(Conv2D(24, (5, 5), strides=(2,2), activation='relu'))
-    # model.add(MaxPooling2D())
-    model.add(Dropout(0.7))
-    model.add(Conv2D(36, (5, 5), strides=(2,2), activation='relu'))
-    # model.add(MaxPooling2D())
-    model.add(Conv2D(48, (5, 5), strides=(2,2), activation='relu'))
-    # model.add(MaxPooling2D())
-    model.add(Dropout(0.7))
-    model.add(Conv2D(64, (3, 3), activation='relu'))
-    model.add(Conv2D(64, (3, 3), activation='relu'))
-    model.add(Dropout(0.7))
-    model.add(Flatten())
-    model.add(Dense(1024))
-    model.add(Dropout(0.7))
-    model.add(Dense(256))
-    model.add(Dense(128))
-    model.add(Dense(1))
-    
-    # P3 Jay
-    # model.add(Cropping2D(cropping=TARGET_CROP))
-    # model.add(Dropout(0.1))
-    # model.add(Conv2D(24, (5, 5), strides=(2,2), activation='relu'))
-    # model.add(Dropout(0.25))
-    # model.add(Conv2D(36, (5, 5), strides=(2,2), activation='relu'))
-    # model.add(Dropout(0.25))
-    # model.add(Conv2D(48, (5, 5), strides=(2,2), activation='relu'))
-    # model.add(Dropout(0.5))
-    # model.add(Conv2D(64, (3, 3), activation='relu'))
-    # model.add(Dropout(0.5))
-    # model.add(Conv2D(64, (3, 3), activation='relu'))
-    # model.add(Dropout(0.5))
-    # model.add(Flatten())
-    # model.add(Dense(100))
-    # model.add(Dense(50))
-    # model.add(Dense(10))
-    # model.add(Dense(1))
-
-    # P3 Guy
-    # model.add(Conv2D(32, (3, 3), strides=(3, 3), padding='same'))
-    # model.add(MaxPooling2D())
-    # model.add(Conv2D(64, (3, 3), strides=(3, 3), padding='same'))
-    # model.add(MaxPooling2D())
-    # model.add(Conv2D(128, (3, 3), strides=(3, 3), padding='same'))
-    # model.add(MaxPooling2D())
-    # model.add(Flatten())
-    # model.add(Dense(500, activation='relu'))
-    # model.add(Dropout(0.2))
-    # model.add(Dense(100, activation='relu'))
-    # model.add(Dropout(0.2))
-    # model.add(Dense(10, activation='relu'))
-    # model.add(Dropout(0.2))
-    # model.add(Dense(1))
-
+model = simple_cnn(TARGET_HEIGHT, TARGET_WIDTH, CHANNELS, TARGET_CROP, model_h5=model_h5)
 model.summary()
+
 if os.path.exists(model_h5):
     print("Load existing model", model_h5)
 else:
@@ -240,11 +173,21 @@ optimizer = Adam()
 model.compile(loss='mse', optimizer=optimizer)
 history_object = model.fit_generator(train_generator, steps_per_epoch=len(train_samples),
     validation_data=validation_generator, validation_steps=len(validation_samples),
-    epochs=EPOCHS, callbacks=[tb])
+    epochs=EPOCHS, callbacks=[tb, es])
 model.save(model_h5)
 
+
+# gan = GAN()
+# gan.model_h5 = model_h5
+# gan.target_width = TARGET_WIDTH
+# gan.
+# learner.train()
+# model = learner.model
+
 # Plotting
-print(history_object.history.keys())
+with open(model_h5.replace('.h5', '-history.pkl'), 'wb') as handle:
+    pickle.dump(history_object.history, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 plt.plot(history_object.history['loss'])
 plt.plot(history_object.history['val_loss'])
 plt.title('model mean squared error loss')

@@ -10,23 +10,31 @@ import numpy as np
 import pickle
 import argparse
 import copy
+import sys
 
 DATA_DIR = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1"
 CALIBRATION_FILE = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC\\Computer\\calibrations\\cal-elp.p"
 
-STEER_MIN = 30
-STEER_MAX = 993
-STEER_FIELD_ID = 1
-TARGET_WIDTH = 320
-TARGET_HEIGHT = 240
-TARGET_CROP = ((60, 20), (0, 0))
+dir_path = os.path.dirname(os.path.realpath(__file__))
 
-def preprocess(raw_img):
-    img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2HSV)[:, :, 2]
-    img = cv2.Sobel(img, -1, 0, 1, ksize=3)
-    img = img / 255.0
-    img = img > 0.5
-    return img
+# Path to Computer root directory
+ROOT_DIR = os.path.realpath(os.path.join(dir_path, '..'))
+
+sys.path.append(ROOT_DIR)
+from libraries.helpers import configuration, preprocess
+
+config = configuration()
+
+
+STEER_FIELD_ID = 1
+
+# Make sure the target shape is the same with the one in driver/main.py
+# i.e. look for cams setup with variable CAP_PROP_FRAME_WIDTH and CAP_PROP_FRAME_HEIGHT.
+TARGET_WIDTH = config['target_width']
+TARGET_HEIGHT = config['target_height']
+TARGET_CROP = config['target_crop']
+STEER_MIN = config['steer_min']
+STEER_MAX = config['steer_max']
 
 def main():
 
@@ -68,6 +76,7 @@ def main():
         raw_img = copy.copy(img)
 
         final_img = preprocess(raw_img)
+        print(final_img.shape)
 
         steer_from_mid = float(row[STEER_FIELD_ID])-steer_mid
         measurement = steer_mid + steer_from_mid

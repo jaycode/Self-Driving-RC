@@ -1,0 +1,4 @@
+DIR="$( cd "$( dirname "$0" )" && pwd )"
+python "$DIR"/example.py \
+/home/jay/Self-Driving-RC-Data/generated/ \
+--data-dirs /home/jay/Self-Driving-RC-Data/recorded-2017-06-11-training/

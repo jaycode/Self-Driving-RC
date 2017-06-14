@@ -1,10 +1,8 @@
 # General Adversarial Network.
 # Run `example.py` script to show some example generated images.
 import os, sys
-from keras.models import Sequential, load_model
-from keras.layers import Flatten, Dense, Lambda, Cropping1D, Cropping2D
-from keras.layers import Conv2D, Dropout, BatchNormalization
-from keras.layers.pooling import MaxPooling2D
+from keras.models import Sequential
+from keras.optimizers import RMSprop
 
 class GAN(object):
     def __init__(self, generator, discriminator, model_h5=None):
@@ -29,6 +27,7 @@ class GAN(object):
         optimizer = RMSprop(lr=0.0001, decay=3e-8)
         model = Sequential()
         model.add(generator)
+        print("disc is", discriminator)
         model.add(discriminator)
         model.compile(loss='binary_crossentropy', optimizer=optimizer,\
             metrics=['accuracy'])

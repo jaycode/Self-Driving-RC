@@ -17,7 +17,9 @@ def configuration():
         'steer_min': 0,
         'steer_max': 1023,
         # Number of image channels.
-        'channels': 1
+        'channels': 1,
+        # If the values in image has values 0 to 255, set to True.
+        'normalize': False
     }
 
 def choose_port(ports):
@@ -59,10 +61,11 @@ def prepare_model(model_path):
     # - "SystemError: unknown opcode": h5 file created with python 3.5, drive.py uses python 3.6.
     return load_model(model_path)
 
-def preprocess(img_raw):
+def preprocess(img_raw, height, width, crop):
     """ Preprocess images.
 
     Make sure to change "channels" in configuration() function to follow suit.
+    Cropping needs to be done here to allow for GAN.
     """
     img = cv2.cvtColor(img_raw, cv2.COLOR_BGR2HSV)[:, :, 1]
     img = cv2.Sobel(img, -1, 1, 0, ksize=3)
@@ -77,10 +80,10 @@ def preprocess(img_raw):
     img_final = (img==1) | (img1==1)
     img_final = np.array([img_final])
     img_final = np.rollaxis(np.concatenate((img_final, img_final, img_final)), 0, 3)
-    return img_final[:, :, [0]]
+    return img_final[crop[0][0]:(height-crop[0][1]), crop[1][0]:(width-crop[1][1]), [0]]
 
-# def preprocess(img_raw):
+# def preprocess(img_raw,  width, height, crop):
 #     """ Preprocess images.
 #     """    
 #     img_final = cv2.cvtColor(img_raw, cv2.COLOR_BGR2HSV)
-#     return img_final
+#     return img_final[crop[0][0]:(height-crop[0][1]), crop[1][0]:(width-crop[1][1]), :]

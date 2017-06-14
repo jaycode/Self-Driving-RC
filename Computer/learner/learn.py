@@ -22,7 +22,7 @@ ROOT_DIR = os.path.realpath(os.path.join(dir_path, '..'))
 
 sys.path.append(ROOT_DIR)
 from libraries.helpers import configuration, preprocess
-from libraries.models import simple_cnn
+from libraries.models import small_cnn
 
 config = configuration()
 
@@ -34,6 +34,7 @@ TARGET_CROP = config['target_crop']
 STEER_MIN = config['steer_min']
 STEER_MAX = config['steer_max']
 CHANNELS = config['channels']
+NORMALIZE = config['normalize']
 
 BATCH_SIZE=32
 EPOCHS=40
@@ -135,7 +136,7 @@ def generator(samples, batch_size=32):
                     image = cv2.imread(source_path)
 
                     # Preprocessing
-                    image = preprocess(image)
+                    image = preprocess(image, TARGET_HEIGHT, TARGET_WIDTH, TARGET_CROP)
 
                     images.append(image)
 
@@ -161,7 +162,10 @@ tb = keras.callbacks.TensorBoard(
      write_graph=True, write_images=True)
 es = keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=3, verbose=0, mode='auto')
 
-model = simple_cnn(TARGET_HEIGHT, TARGET_WIDTH, CHANNELS, TARGET_CROP, model_h5=model_h5)
+model = small_cnn(
+    (TARGET_HEIGHT-TARGET_CROP[0][0]-TARGET_CROP[0][1]),
+    (TARGET_WIDTH-TARGET_CROP[1][0]-TARGET_CROP[1][1]),
+    CHANNELS, model_h5=model_h5, normalize=NORMALIZE)
 model.summary()
 
 if os.path.exists(model_h5):
@@ -175,7 +179,6 @@ history_object = model.fit_generator(train_generator, steps_per_epoch=len(train_
     validation_data=validation_generator, validation_steps=len(validation_samples),
     epochs=EPOCHS, callbacks=[tb, es])
 model.save(model_h5)
-
 
 # gan = GAN()
 # gan.model_h5 = model_h5

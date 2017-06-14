@@ -6,7 +6,7 @@ from keras.layers.pooling import MaxPooling2D
 from keras.layers.normalization import BatchNormalization
 from keras.layers.convolutional import UpSampling2D, Conv2DTranspose
 
-def simple_cnn(target_height, target_width, channels, model_h5=None, normalize=True):
+def small_cnn(target_height, target_width, channels, model_h5=None, normalize=True):
     model = None
     if model_h5 and os.path.exists(model_h5):
         model = load_model(model_h5)
@@ -45,51 +45,13 @@ def simple_cnn(target_height, target_width, channels, model_h5=None, normalize=T
         model.add(Dropout(dropout))
         # 10x7x64 = 4480
         model.add(Flatten())
-        model.add(Dense(1024))
-        model.add(Dropout(dropout_fconn))
-        model.add(Dense(256))
-        model.add(Dropout(dropout_fconn))
-        model.add(Dense(128))
+        model.add(Dense(10))
         model.add(Dropout(dropout_fconn))
         model.add(Dense(1))
-        
-        # P3 Jay
-        # model.add(Cropping2D(cropping=target_crop))
-        # model.add(Dropout(0.1))
-        # model.add(Conv2D(24, (5, 5), strides=(2,2), activation='relu'))
-        # model.add(Dropout(0.25))
-        # model.add(Conv2D(36, (5, 5), strides=(2,2), activation='relu'))
-        # model.add(Dropout(0.25))
-        # model.add(Conv2D(48, (5, 5), strides=(2,2), activation='relu'))
-        # model.add(Dropout(0.5))
-        # model.add(Conv2D(64, (3, 3), activation='relu'))
-        # model.add(Dropout(0.5))
-        # model.add(Conv2D(64, (3, 3), activation='relu'))
-        # model.add(Dropout(0.5))
-        # model.add(Flatten())
-        # model.add(Dense(100))
-        # model.add(Dense(50))
-        # model.add(Dense(10))
-        # model.add(Dense(1))
-
-        # P3 Guy
-        # model.add(Conv2D(32, (3, 3), strides=(3, 3), padding='same'))
-        # model.add(MaxPooling2D())
-        # model.add(Conv2D(64, (3, 3), strides=(3, 3), padding='same'))
-        # model.add(MaxPooling2D())
-        # model.add(Conv2D(128, (3, 3), strides=(3, 3), padding='same'))
-        # model.add(MaxPooling2D())
-        # model.add(Flatten())
-        # model.add(Dense(500, activation='relu'))
-        # model.add(Dropout(0.2))
-        # model.add(Dense(100, activation='relu'))
-        # model.add(Dropout(0.2))
-        # model.add(Dense(10, activation='relu'))
-        # model.add(Dropout(0.2))
-        # model.add(Dense(1))
+       
     return model
 
-def simple_cnn_generator(target_height, target_width, channels, model_h5=None):
+def small_cnn_generator(target_height, target_width, channels, model_h5=None):
     model = None
     if model_h5 and os.path.exists(model_h5):
         model = load_model(model_h5)

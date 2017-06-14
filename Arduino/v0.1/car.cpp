@@ -98,10 +98,11 @@ void Car::listenAile() {
 
 void Car::steer(const int steerSpeed) {
   int ss = steerSpeed;
-  ss = log10(fabs(ss))*30;
-  
+  ss = log10(fabs(ss))*35;
   if (steerSpeed < 0) {
-    ss = -ss;
+    // Turning left and right is not balanced. This was found
+    // empirically.
+    ss = -ss*1.2;
   }
   bool calc1 = curSteerFeed_ > steerFeedMax_-steerSlack_;
   bool calc2 = curSteerFeed_ < steerFeedMin_+steerSlack_;

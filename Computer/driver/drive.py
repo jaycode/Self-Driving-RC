@@ -104,8 +104,6 @@ img_queue = Queue(maxsize=128)
 
 def draw_visualization(final_img, image, steer=None):
     f3 = np.stack((final_img[:, :, 0], final_img[:, :, 0], final_img[:, :, 0]), axis=2)
-    f3 = f3[TARGET_CROP[0][0]:(TARGET_HEIGHT-TARGET_CROP[0][1]),
-            TARGET_CROP[1][0]:(TARGET_WIDTH-TARGET_CROP[1][1]), :]
     f3 = (f3 * 255.0).astype(np.uint8)
 
     text1 = "steer: {}".format(steer)
@@ -145,7 +143,7 @@ def record(cams):
             img_queue.task_done()
             if item['visualize']:
                 # Preprocessing
-                final_img = preprocess(frame)
+                final_img = preprocess(frame, TARGET_HEIGHT, TARGET_WIDTH, TARGET_CROP)
                 draw_visualization(final_img, frame, steer=item['status']['steer'])
 
 
@@ -232,7 +230,7 @@ def auto_drive_cams(port, controller, status, model, cams, allow_throttle, visua
     ret, image = cams[0].read()
 
     # Preprocessing
-    final_img = preprocess(image)
+    final_img = preprocess(image, TARGET_HEIGHT, TARGET_WIDTH, TARGET_CROP)
     img_array = np.asarray(final_img)[None, :, :, :]
 
     throttle = controller.update(status['speed'])
@@ -258,14 +256,14 @@ def auto_drive_cams(port, controller, status, model, cams, allow_throttle, visua
     else:
         throttle = int(throttle)
         new_steer = int(new_steer)
+        # if new_steer > 512:
+        #     new_steer += 200
+        # else:
+        #     new_steer -= 200
         print("throttle: {}, steer: {}".format(throttle, new_steer))
         if allow_throttle:
             port.write(bytearray("{}{};".format(\
                 HOST_AUTO_THROTTLE.decode(), str(throttle)), 'utf-8'))
-        # if new_steer > 512:
-        #     new_steer -= 812
-        # else:
-        #     new_steer -= 400
         new_steer = min(new_steer, 1023)
         new_steer = max(new_steer, 0)
         # new_steer = 0
@@ -366,7 +364,8 @@ def main():
                         ret, image = cams[0].read()
 
                         # Preprocessing
-                        final_img = preprocess(image)
+                        final_img = preprocess(image, TARGET_HEIGHT, TARGET_WIDTH, TARGET_CROP)
+                        print(final_img.shape)
                         draw_visualization(final_img, image, steer=status['steer'])
 
 if __name__ == "__main__":

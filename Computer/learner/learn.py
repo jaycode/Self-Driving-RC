@@ -22,7 +22,7 @@ ROOT_DIR = os.path.realpath(os.path.join(dir_path, '..'))
 
 sys.path.append(ROOT_DIR)
 from libraries.helpers import configuration, preprocess
-from libraries.models import small_cnn
+from libraries.models import simple_cnn, small_cnn
 
 config = configuration()
 
@@ -162,7 +162,7 @@ tb = keras.callbacks.TensorBoard(
      write_graph=True, write_images=True)
 es = keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=3, verbose=0, mode='auto')
 
-model = small_cnn(
+model = simple_cnn(
     (TARGET_HEIGHT-TARGET_CROP[0][0]-TARGET_CROP[0][1]),
     (TARGET_WIDTH-TARGET_CROP[1][0]-TARGET_CROP[1][1]),
     CHANNELS, model_h5=model_h5, normalize=NORMALIZE)

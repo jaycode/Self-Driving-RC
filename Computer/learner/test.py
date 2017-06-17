@@ -168,7 +168,7 @@ def main():
 
             frame_path = os.path.join(test_images_dir, row[0])
             frame = cv2.imread(frame_path)
-            final_img = preprocess(frame)
+            final_img = preprocess(frame, TARGET_HEIGHT, TARGET_WIDTH, TARGET_CROP)
             img_array = np.asarray(final_img)[None, :, :, :]
 
             new_steer_total = 0
@@ -185,7 +185,7 @@ def main():
             t_rse += rse
             stats['steer'].append(new_steer)
             stats['se'].append(se)
-            stats['rse'].append(t_rse)
+            stats['rse'].append(rse)
             stats['id'].append(row[0])
             stats['throttle'].append(speed)
 
@@ -201,8 +201,6 @@ def main():
             # === Logging ===
 
             f3 = np.stack((final_img[:, :, 0], final_img[:, :, 0], final_img[:, :, 0]), axis=2)
-            f3 = f3[TARGET_CROP[0][0]:(TARGET_HEIGHT-TARGET_CROP[0][1]),
-                    TARGET_CROP[1][0]:(TARGET_WIDTH-TARGET_CROP[1][1]), :]
             f3 = (f3 * 255.0).astype(np.uint8)
 
             text1 = "pred: {}".format(new_steer)
@@ -222,7 +220,7 @@ def main():
                 cv2.imshow("RC", viz)
                 cv2.waitKey(1)
 
-            if i%(max(1,int(row_count/50))) == 0:
+            if i%(max(1,int(row_count/40))) == 0:
                 counter+=1
                 sys.stdout.write("\r{0}".format("="*counter))
 

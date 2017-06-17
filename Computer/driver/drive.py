@@ -48,10 +48,6 @@ from libraries.helpers import configuration, choose_port, preprocess, prepare_mo
 
 # Path to calibration file
 CALIBRATION_FILE = os.path.realpath(os.path.join(dir_path, '..', 'calibrations', 'cal-elp.p'))
-with open( CALIBRATION_FILE, "rb" ) as pfile:
-    cal = pickle.load(pfile)
-mtx = cal['mtx']
-dist = cal['dist']
 
 config = configuration()
 
@@ -224,13 +220,13 @@ def read_status(port):
     status['steer'] = int(value)
     return status
 
-def auto_drive_cams(port, controller, status, model, cams, allow_throttle, visualize=False):
+def auto_drive_cams(port, controller, status, model, cams, allow_throttle, mtx, dist, M, Minv, visualize=False):
     global mtx, dist
     # Read image and do image preprocessing (when needed)
     ret, image = cams[0].read()
 
     # Preprocessing
-    final_img = preprocess(image, TARGET_HEIGHT, TARGET_WIDTH, TARGET_CROP)
+    final_img = preprocess(image, TARGET_HEIGHT, TARGET_WIDTH, TARGET_CROP, mtx, dist, M, Minv)
     img_array = np.asarray(final_img)[None, :, :, :]
 
     throttle = controller.update(status['speed'])
@@ -295,6 +291,9 @@ def main():
     parser.add_argument('-v', action='store_true',
         default=False,
         help="`-v` option visualizes the what the car sees.")
+    parser.add_argument('--calibration-file', type=str,
+        default=CALIBRATION_FILE,
+        help="Path to calibration file e.g. `/home/user/cal-elp.p`.")
 
     args = parser.parse_args()
     if args.model:
@@ -302,6 +301,9 @@ def main():
     else:
         print("Warning: No model has been defined. AUTO mode is disabled.\n"+\
               "Add --model [path to json file] to load a model.")
+
+    calibration_file = args.calibration_file
+    mtx, dist, M, Minv = prepare_initial_transformation(calibration_file, TARGET_HEIGHT, TARGET_WIDTH)
 
     allow_throttle = args.t
     visualize = args.v
@@ -356,7 +358,7 @@ def main():
                 elif status['mode'] == DRIVE_MODE_AUTO:
                     # Inference phase
                     auto_time_1 = time.time()
-                    auto_drive_cams(port, controller, status, model, cams, allow_throttle, visualize)
+                    auto_drive_cams(port, controller, status, model, cams, allow_throttle, mtx, dist, M, Minv, visualize)
                     print("auto latency:", (time.time() - auto_time_1))
 
                 elif status['mode'] == DRIVE_MODE_MANUAL:
@@ -364,7 +366,7 @@ def main():
                         ret, image = cams[0].read()
 
                         # Preprocessing
-                        final_img = preprocess(image, TARGET_HEIGHT, TARGET_WIDTH, TARGET_CROP)
+                        final_img = preprocess(image, TARGET_HEIGHT, TARGET_WIDTH, TARGET_CROP, mtx, dist, M, Minv)
                         print(final_img.shape)
                         draw_visualization(final_img, image, steer=status['steer'])
 

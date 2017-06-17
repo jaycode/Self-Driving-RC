@@ -25,7 +25,7 @@ def small_cnn(target_height, target_width, channels, model_h5=None, normalize=Tr
         # lambda x: (x - 16) / (np.matrix([235.0, 240.0, 240.0]) - 16) - 0.5,
         # input_shape=(target_height,target_width, 3)))
 
-        dropout = 0.4
+        dropout = 0.7
         dropout_fconn = 0.1
 
         # 320x110x1 (assuming 1 channel)
@@ -45,7 +45,9 @@ def small_cnn(target_height, target_width, channels, model_h5=None, normalize=Tr
         model.add(Dropout(dropout))
         # 10x7x64 = 4480
         model.add(Flatten())
-        model.add(Dense(10))
+        model.add(Dense(100))
+        model.add(Dropout(dropout_fconn))
+        model.add(Dense(50))
         model.add(Dropout(dropout_fconn))
         model.add(Dense(1))
        

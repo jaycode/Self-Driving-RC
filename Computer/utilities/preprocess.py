@@ -13,7 +13,6 @@ import copy
 import sys
 
 DATA_DIR = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC-Data\\recorded-2017-06-01.1"
-CALIBRATION_FILE = "C:\\Users\\teguh\\Dropbox\\Projects\\Robotics\\Self-Driving-RC\\Computer\\calibrations\\cal-elp.p"
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -21,9 +20,12 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 ROOT_DIR = os.path.realpath(os.path.join(dir_path, '..'))
 
 sys.path.append(ROOT_DIR)
-from libraries.helpers import configuration, preprocess
+from libraries.helpers import configuration, preprocess, prepare_initial_transformation
 
 config = configuration()
+
+# Path to calibration file
+CALIBRATION_FILE = os.path.realpath(os.path.join(dir_path, '..', 'calibrations', 'cal-elp.p'))
 
 
 STEER_FIELD_ID = 1
@@ -48,12 +50,9 @@ def main():
     args = parser.parse_args()
     data_dir = args.data_dir
     calibration_file = args.calibration_file
+    mtx, dist, M, Minv = prepare_initial_transformation(calibration_file, TARGET_HEIGHT, TARGET_WIDTH)
 
     lines = []
-    with open( calibration_file, "rb" ) as pfile:
-        cal = pickle.load(pfile)
-    mtx = cal['mtx']
-    dist = cal['dist']
 
     DATA_FILE = os.path.join(data_dir, "recorded.csv")
     with open(DATA_FILE) as csvfile:
@@ -75,24 +74,26 @@ def main():
         # raw_img = cv2.undistort(img, mtx, dist, None, mtx)
         raw_img = copy.copy(img)
 
-        final_img = preprocess(raw_img)
-        print(final_img.shape)
+        final_img = preprocess(raw_img, TARGET_HEIGHT, TARGET_WIDTH, TARGET_CROP, mtx, dist, M, Minv)
+        print("final img shape", final_img.shape)
 
         steer_from_mid = float(row[STEER_FIELD_ID])-steer_mid
         measurement = steer_mid + steer_from_mid
         measurement_str = '%.1f' % measurement
 
-        f3 = np.array([final_img, final_img, final_img])
-        f3 = np.rollaxis(f3, 0, 3)
-        f3 = f3 * 255.0
-        f3 = f3[TARGET_CROP[0][0]:(TARGET_HEIGHT-TARGET_CROP[0][1]),
-                TARGET_CROP[1][0]:(TARGET_WIDTH-TARGET_CROP[1][1]), 2]
+        f3 = np.stack((final_img[:, :, 0], final_img[:, :, 0], final_img[:, :, 0]), axis=2)
+        
+        # f3 = (f3 * 255.0).astype(np.uint8)
+
+
         save_path = os.path.join(data_dir, "w_steer", row[0])
+        print("f3 to save", f3.shape)
         cv2.imwrite(save_path, f3)
         f3 = cv2.imread(save_path)
         f3 = cv2.putText(f3, row[STEER_FIELD_ID], (10,40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255))
         raw_img = raw_img[TARGET_CROP[0][0]:(TARGET_HEIGHT-TARGET_CROP[0][1]),
                 TARGET_CROP[1][0]:(TARGET_WIDTH-TARGET_CROP[1][1]), :]
+        print("f3", f3.shape, "raw_img", raw_img.shape)
         viz = np.concatenate((f3, raw_img), axis=0)
         cv2.imwrite(save_path, viz)
 

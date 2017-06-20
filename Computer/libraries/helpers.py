@@ -89,8 +89,8 @@ def preprocess1(img_raw, height, width, crop):
     img1 = img1 > 0.5
 
     img_final = (img==1) | (img1==1)
-    # img_final = np.array([img_final])
-    # img_final = np.rollaxis(np.concatenate((img_final, img_final, img_final)), 0, 3)
+    img_final = np.array([img_final])
+    img_final = np.rollaxis(np.concatenate((img_final, img_final, img_final)), 0, 3)
     return img_final[crop[0][0]:(height-crop[0][1]), crop[1][0]:(width-crop[1][1]), [0]]
 
 def prepare_initial_transformation(calibration_path, img_height, img_width):

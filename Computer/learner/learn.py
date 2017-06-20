@@ -11,6 +11,7 @@ import sklearn
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 import pickle
+import pdb
 
 import keras
 from keras.optimizers import Adam
@@ -21,7 +22,7 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 ROOT_DIR = os.path.realpath(os.path.join(dir_path, '..'))
 
 sys.path.append(ROOT_DIR)
-from libraries.helpers import configuration, preprocess
+from libraries.helpers import configuration, preprocess1
 from libraries.models import simple_cnn, small_cnn
 
 config = configuration()
@@ -117,38 +118,32 @@ def generator(samples, batch_size=32):
     num_samples = len(samples)
     while 1:
         shuffle(samples)
+        # pdb.set_trace()
         for offset in range(0, num_samples, batch_size):
             batch_samples = samples[offset:offset+batch_size]
 
             images = []
             measurements = []
             for batch_sample in batch_samples:
-                # TODO: Use multiple cameras
-                # corrections = [0, (0.2*steer_range), (0.2*steer_range)] # center, left, right
-                corrections = [0]
+                
+                # field number 0 contains the center image.
+                source_path = batch_sample[0]
+                image = cv2.imread(source_path)
 
-                # The following loop takes data from three cameras: center, left, and right.
-                # The steering measurement for each camera is then added by
-                # the correction as listed above.
-                for i, c in enumerate(corrections):
-                    # field number i contains the image.
-                    source_path = batch_sample[i]
-                    image = cv2.imread(source_path)
+                # Preprocessing
+                image = preprocess1(image, TARGET_HEIGHT, TARGET_WIDTH, TARGET_CROP)
 
-                    # Preprocessing
-                    image = preprocess(image, TARGET_HEIGHT, TARGET_WIDTH, TARGET_CROP)
+                images.append(image)
 
-                    images.append(image)
+                steer_from_mid = float(batch_sample[STEER_FIELD_ID])
+                measurement = steer_mid + steer_from_mid
+                measurements.append(int(measurement))
 
-                    steer_from_mid = float(batch_sample[STEER_FIELD_ID])-steer_mid
-                    measurement = steer_mid + steer_from_mid + c
-                    measurements.append(int(measurement))
-
-                    # Flip
-                    image_flipped = np.fliplr(image)
-                    images.append(image_flipped)
-                    measurement_flipped = steer_mid - steer_from_mid - c
-                    measurements.append(int(measurement_flipped))
+                # Flip
+                image_flipped = np.fliplr(image)
+                images.append(image_flipped)
+                measurement_flipped = steer_mid - steer_from_mid
+                measurements.append(int(measurement_flipped))
 
             X_train = np.array(images).astype('float')
             y_train = np.array(measurements)
@@ -175,8 +170,8 @@ else:
 
 optimizer = Adam()
 model.compile(loss='mse', optimizer=optimizer)
-history_object = model.fit_generator(train_generator, steps_per_epoch=len(train_samples),
-    validation_data=validation_generator, validation_steps=len(validation_samples),
+history_object = model.fit_generator(train_generator, steps_per_epoch=len(train_samples)//BATCH_SIZE,
+    validation_data=validation_generator, validation_steps=len(validation_samples)//BATCH_SIZE,
     epochs=EPOCHS, callbacks=[tb, es])
 model.save(model_h5)
 

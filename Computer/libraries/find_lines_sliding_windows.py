@@ -472,7 +472,7 @@ class FindLinesSlidingWindows(object):
         # Choose a line with least error for each side.
         
         midpoint = np.int(binary_warped.shape[1]/2)
-        selected = []
+        selected = {'left': [], 'right': []}
 
         # Do the error calculation here.
         # Threshold value found by eyeballing min_error
@@ -483,9 +483,10 @@ class FindLinesSlidingWindows(object):
         best = None
         min_error = None
         for fits in lfits:
-            if fits[0] is not None:
-                error = calc_error(fits[0], nonzero, binary_warped.shape[1],
+            if fits['x'] is not None:
+                error = calc_error(fits['x'], nonzero, binary_warped.shape[1],
                                    top_percentile=self.error_top_percentile, debug=self.debug_error_detail)
+                fits['error'] = error
                 if min_error is None or error < min_error:
                     min_error = error
                     best = fits
@@ -495,22 +496,23 @@ class FindLinesSlidingWindows(object):
                 not_inc = " (not included)"
             print("line 1 error: {}{}".format(min_error, not_inc))
             if best:
-                print("line 1 coefs: {}".format(best[1]))
+                print("line 1 coefs: {}".format(best['poly']))
         if self.debug and self.debug_show_lines:
             for fits in lfits:
-                if fits[0] is not None:
-                    selected.append(fits)
+                if fits['x'] is not None:
+                    selected['left'].append(fits)
         else:
             if best is not None and min_error < self.error_threshold:
-                selected.append(best)
+                selected['left'].append(best)
         line1_error = min_error
         
         best = None
         min_error = None
         for fits in rfits:
-            if fits[0] is not None:
-                error = calc_error(fits[0], nonzero, binary_warped.shape[1],
+            if fits['x'] is not None:
+                error = calc_error(fits['x'], nonzero, binary_warped.shape[1],
                                   top_percentile=self.error_top_percentile, debug=self.debug_error_detail)
+                fits['error'] = error
                 if min_error is None or error < min_error:
                     min_error = error
                     best = fits
@@ -520,29 +522,27 @@ class FindLinesSlidingWindows(object):
                 not_inc = " (not included)"
             print("line 2 error: {}{}".format(min_error, not_inc))
             if best:
-                print("line 2 coefs: {}".format(best[1]))
+                print("line 2 coefs: {}".format(best['poly']))
             if self.debug_show_lines:
                 best = fits
                 min_error = 0
         if self.debug and self.debug_show_lines:
             for fits in rfits:
-                if fits[0] is not None:
-                    selected.append(fits)
+                if fits['x'] is not None:
+                    selected['right'].append(fits)
         else:
             if best is not None and min_error < self.error_threshold:
-                selected.append(best)
+                selected['right'].append(best)
         line2_error = min_error
         
         # === Remove converged line(s) ===
-        if len(selected) == 2:
-            conv = (selected[0][0]-selected[1][0])**2
-#             print(conv)
-#             print(np.any(conv < 1.0))
+        if len(selected['left']) > 0 and len(selected['right']) > 0:
+            conv = (selected['left'][0]['x']-selected['right'][0]['x'])**2
             if np.any(conv < 1.0):
-                if line1_error > line2_error:
-                    del selected[0]
+                if selected['left'][0]['error'] < selected['right'][0]['error']:
+                    del selected['right'][0]
                 else:
-                    del selected[1]
+                    del selected['left'][0]
         # === END - Remove converged line(s) ===
         
         return (selected)
@@ -562,7 +562,7 @@ class FindLinesSlidingWindows(object):
                 y = nonzeroy[lane_inds] 
                 # binary_warped[nonzeroy[self.left_lane_inds], nonzerox[self.left_lane_inds]] would
                 # select all non-zero points. Remember that binary_warped is one dimensional.
-                fit, error = self._polyfit(x, y)
+                fit, _ = self._polyfit(x, y)
                 
                 # Calculate x of each pixel y position
                 if fit is not None:
@@ -577,7 +577,11 @@ class FindLinesSlidingWindows(object):
                         
                 else:
                     fitx = None
-                fits[key] = (fitx, fit, lane_inds, error)
+                fits[key] = {
+                    'x': fitx,
+                    'poly': fit,
+                    'lane_inds': lane_inds
+                }
             else:
                 lane_inds = None
                 
@@ -650,7 +654,8 @@ class FindLinesSlidingWindows(object):
             A list of fits that contains:
             - fit x positions
             - fit coefficients
-            - indexes.
+            - indexes
+            - errors
         """
         self.windows = []
         # An array of y value from 0 to (image height - 1)

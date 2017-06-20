@@ -6,6 +6,8 @@
 [3]: ./Docs/3.jpg
 [schematic]: ./Docs/Schematic.png
 [system]: ./Docs/System.png
+[mpc]: ./Docs/MPC.png
+[sliding_window]: ./Docs/sliding_window.png
 
 
 ![Front view][1]
@@ -51,4 +53,37 @@ The remote controller has a 3-way toggles for *Recorded*, *Manual*, and *Auto* m
 
 As briefly mentioned earlier, we are currently making a transition from using deep learning to output steering values into the MPC algorithm. In the above diagram, I show an overview of the process from data recording to auto-drive the car.
 
-MPC algorithm works by giving the agent (the RC car, in this scenario) as much empirical evidence as needed to get it to predict what it needs to do several timeslots in the future to achieve a desirable state. In our case, this "state" is a position and angle at a certain position in the future. In [this simulation video](https://youtu.be/AYXNlmw3f48), the target state is given by the yellow line, and the car's prediction is given by the green line. Notice how the green line is available for only several points ahead of the car.
+### MPC Algorithm
+
+MPC algorithm works by giving the agent (the RC car, in this scenario) as much empirical evidence as needed to get it to predict what it needs to do several timeslots in the future to achieve a desirable state. In our case, this "state" is a position and angle at a certain position in the future i.e. the "waypoints". In [this simulation video](https://youtu.be/AYXNlmw3f48), the target state is given by the yellow waypoints, and the car's prediction is given by the green line:
+
+![MPC][mpc]
+
+### Lane Line Detection
+
+In order for the MPC algorithm to work, it requires a waypoint as its target. This may essentially be the center of the road detected by the car. Center line can be derived by knowing where the left and right lanes are; hence, we need to implement a lane line detection algorithm in this system. One popular method that we implemented in this project is by using a histogram and sliding windows:
+
+![Sliding Window][sliding_window]
+
+This method has been extensively discussed in [another project](https://github.com/jaycode/Advanced-Lane-Lines), with the addition of some slightly different implementation in this project:
+
+- The sliding windows are going both vertically and horizontally to handle cases where the lines are coming from the bottom part of the screen and left/right parts, respectively.
+- All produced lines are then scored based on the x-position distance to the closest pixels surrounding the lines.
+- There is a simple clustering mechanism within each sliding window (green and red boxes in the image above) to help the algorithm decide on a branch to pick. Notice in the screenshot above the predicted line correctly picked the trajectory that goes to the top-right section.
+- There is also a weight adjustment that makes a preference of lines that are closer to the car (i.e. middle, bottom).
+
+The research on the computer vision methods is done in [this Jupyter Notebook document](https://github.com/jaycode/Self-Driving-RC/blob/master/Computer/experiments/preprocess/Line%20Finding.ipynb).
+
+#### Problems with Computer Vision techniques in detecting lane lines.
+
+The problem that we quickly found was that it was nearly impossible to create a computer vision algorithm that is robust enough to handle all possible variations of lane line detection problems. Optimizing on a certain features makes the algorithm to fail in other scenarios.
+
+Secondly, we also ran into a performance issue when allowing the computer to run this computer vision model. What to do, then?
+
+### PolyNet: Deep Learning to detect lane lines
+
+Instead of doing the lane line detection by computer vision techniques, we train a neural network to detect the lines. We use the resulting prediction as a target/label given image as X into this network. The network will output the coefficients of the polynomial in addition to a boolean signifying whether a line should be drawn:
+
+```
+[True, 1.50337289e-03  -1.14523089e-01   2.19283077e+02]
+```

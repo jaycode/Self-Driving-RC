@@ -1,0 +1,6 @@
+DIR="$( cd "$( dirname "$0" )" && pwd )"
+python "$DIR"/prep_polynet_data.py \
+--images-glob /home/jay/Self-Driving-RC-Data/recorded-2017-06-11-test/recorded/\*.jpg \
+--results-dir /home/jay/Self-Driving-RC-Data/recorded-2017-06-11-test/poly/ \
+--results-csv /home/jay/Self-Driving-RC-Data/recorded-2017-06-11-test/poly.csv \
+--calibration-file /home/jay/Self-Driving-RC/Computer/calibrations/cal-elp.p

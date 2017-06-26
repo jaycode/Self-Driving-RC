@@ -47,6 +47,11 @@ The remote controller has a 3-way toggles for *Recorded*, *Manual*, and *Auto* m
 
 ![Side view][3]
 
+## System Environment
+
+- Python 3.6
+- OpenCV 3.0
+
 ## How to Play
 
 ![System][system]
@@ -69,6 +74,7 @@ This method has been extensively discussed in [another project](https://github.c
 
 - The sliding windows are going both vertically and horizontally to handle cases where the lines are coming from the bottom part of the screen and left/right parts, respectively.
 - All produced lines are then scored based on the x-position distance to the closest pixels surrounding the lines.
+- When the lines are overlapping, like in the example above, line with the smallest error rate is chosen. Left lane in the above's case.
 - There is a simple clustering mechanism within each sliding window (green and red boxes in the image above) to help the algorithm decide on a branch to pick. Notice in the screenshot above the predicted line correctly picked the trajectory that goes to the top-right section.
 - There is also a weight adjustment that makes a preference of lines that are closer to the car (i.e. middle, bottom).
 
@@ -76,7 +82,7 @@ The research on the computer vision methods is done in [this Jupyter Notebook do
 
 #### Problems with Computer Vision techniques in detecting lane lines.
 
-The problem that we quickly found was that it was nearly impossible to create a computer vision algorithm that is robust enough to handle all possible variations of lane line detection problems. Optimizing on a certain features makes the algorithm to fail in other scenarios.
+The problem that we quickly found was that it was nearly impossible to create a computer vision algorithm that is robust enough to handle all possible variations of lane line detection problems. Optimizing on a certain features makes the algorithm to fail in other scenarios. Even the above image was actually incorrect; the right blob should have been another line that goes in parallel with the left lane line.
 
 Secondly, we also ran into a performance issue when allowing the computer to run this computer vision model. What to do, then?
 

@@ -98,3 +98,17 @@ Instead of doing the lane line detection by computer vision techniques, we train
 ```
 [True, 1.50337289e-03  -1.14523089e-01   2.19283077e+02]
 ```
+
+## Roadmap
+- ~~Take control of an RC car with a microcontroller.~~
+- ~~Connect computer to microcontroller and allow the former to record training data.~~
+- ~~Allow computer to communicate with and drive microcontroller using a serial connection.~~
+- ~~Initial Behavioral Cloning driving system.~~
+- Initial Machine Learning system to draw lines (PolyNet).
+- Installation of accelerometer and other methods to estimate velocity (use unscented Kalman Filter for speed estimation).
+- Peer to peer connection between computer and RC car to enable live debugging.
+- MPC system to control the car.
+- Improvement of both Behavioral Cloning driving and MPC to see which one performs better.
+  - Bonus: Look into Generative Adversarial Network to improve model robustness.
+- ????????
+- Profit

@@ -1,0 +1,4 @@
+DIR="$( cd "$( dirname "$0" )" && pwd )"
+python "$DIR"/test_poly.py \
+/home/jay/Self-Driving-RC-Data/recorded-2017-06-11-training/ \
+--models /home/jay/Self-Driving-RC-Data/polynet.h5

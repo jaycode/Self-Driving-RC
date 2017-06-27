@@ -32,7 +32,7 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 ROOT_DIR = os.path.realpath(os.path.join(dir_path, '..'))
 
 sys.path.append(ROOT_DIR)
-from libraries.helpers import configuration, choose_port, preprocess, prepare_model
+from libraries.helpers import configuration, choose_port, prepare_initial_transformation, preprocess_line_finding, prepare_model
 
 config = configuration()
 
@@ -58,22 +58,11 @@ def main():
         "Model definition is created by learner/learn.py script. " + \
         "The resulting prediction is going to be the average of all of the " + \
         "predictions.")
-    parser.add_argument('-d', action='store_true',
-        default=False,
-        help="When flag `-d` is included, send command to the actuators. " +
-        "This is useful to inspect how the car runs when given input data.\n" +
-        "DON'T FORGET TO SET THE CAR TO \"AUTO\" MODE.")
-    parser.add_argument('-t', action='store_true',
-        default=False,
-        help="By default, this script does not actuate throttle. To allow it to"
-        "send throttle commands, include flag `-t`.")
+
+    parser.add_argument('--calibration-file', type=str,
+        help="Path to calibration file e.g. `/home/user/cal-elp.p`.")
 
     args = parser.parse_args()
-    allow_drive = args.d
-    allow_throttle = args.t
-
-    if allow_drive:
-        port = choose_port(ports)
 
     # Prepare models
     if not args.models:
@@ -87,28 +76,10 @@ def main():
     path = glob.glob(os.path.join(test_dir, 'recorded', '*.jpg'))
     path_r = os.path.split(path[0])
     test_images_dir = os.path.join(test_dir, "recorded")
-    path = os.path.join(test_dir, '*.csv')
-    test_image_csv = glob.glob(path)[0]
-    test_result_dir = os.path.join(test_dir, 'test_results')
+    test_result_dir = os.path.join(test_dir, 'test_poly_results')
     test_result_imgs_dir = os.path.join(test_result_dir, 'images')
 
     os.makedirs(test_result_imgs_dir, exist_ok=True)
-
-    # For debugging latency.
-    previous_time = time.time()
-
-    # total squared error
-    t_se = 0.0
-    # total root squared error
-    t_rse = 0.0
-    speed = 0.0
-    stats = {
-        'id': [],
-        'throttle': [],
-        'steer': [],
-        'rse': [],
-        'se': []
-    }
 
     with open(test_image_csv, 'r') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
@@ -123,10 +94,10 @@ def main():
 
             frame_path = os.path.join(test_images_dir, row[0])
             frame = cv2.imread(frame_path)
-            final_img = preprocess(frame, TARGET_HEIGHT, TARGET_WIDTH, TARGET_CROP)
+            final_img = preprocess_line_finding(frame, M)
             img_array = np.asarray(final_img)[None, :, :, :]
 
-            new_steer_total = 0
+            total_predictions = []
             for model in models:
                 prediction = model.predict(\
                     img_array, batch_size=1)

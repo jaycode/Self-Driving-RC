@@ -112,3 +112,11 @@ Instead of doing the lane line detection by computer vision techniques, we train
   - Bonus: Look into Generative Adversarial Network to improve model robustness.
 - ????????
 - Profit
+
+## Thanks To
+
+This project has received tremendous help from these amazing people:
+- [Guy Giorgi Pavlov](https://github.com/gpavlov2016): Oversees the project and highly involved in gettting this project off the ground.
+- Eugene Fainstain: Debugging the issues with microcontroller and how the components "talk" to each other, and ideas for the system's architecture.
+- [Jin Yamanaka](https://github.com/jiny2001): Debugging and improvements on deep learning system performance.
+- Many others in the [Hackerdojo](https://hackerdojo.com/) community who let us to use it as a training ground and use their tools and amenities.

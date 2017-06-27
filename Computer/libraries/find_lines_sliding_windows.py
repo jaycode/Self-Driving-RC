@@ -31,7 +31,7 @@ class FindLinesSlidingWindows(object):
                  left_search_margin=30, right_search_margin=30,
                  lines=(1, 1, 1, 1),
                  vert_x_adjust=(0, 0),
-                 always_recalculate=False):
+                 scale=1.0):
         """ Initialize a Sliding Window line finder.
         
         When `debug` is True, add the following before running the `process()` method:
@@ -57,13 +57,14 @@ class FindLinesSlidingWindows(object):
             lr_start_slack: Left and right lines must come from the edge + this slack * width.
             lines: Active lines, tuple of (left_vertical, left_horizontal, right_vertical, right_horizontal).
             vert_x_adjust: Tuple of integer (left, right). Add x position by this amount.
+            scale: When set, adjust all relevant values for a scaled image.
         """
         self.reset()     
         
         self.nwindows = nwindows
-        self.window_minpix = window_minpix
-        self.left_search_margin = left_search_margin
-        self.right_search_margin = right_search_margin
+        self.window_minpix = int(window_minpix*scale)
+        self.left_search_margin = int(left_search_margin*scale)
+        self.right_search_margin = int(right_search_margin*scale)
         
         self.debug = debug
         self.debug_dir = debug_dir
@@ -71,9 +72,9 @@ class FindLinesSlidingWindows(object):
         self.debug_error_detail = debug_error_detail
         self.debug_axes = debug_axes_for_histogram
         
-        self.error_threshold = error_threshold    
+        self.error_threshold = int(error_threshold*scale)   
         self.window_patience = window_patience
-        self.window_empty_px = window_empty_px
+        self.window_empty_px = int(window_empty_px*scale)
         self.v_hist_crop_top = v_hist_crop_top
         self.h_hist_crop_top = h_hist_crop_top
         self.v_win_crop_top = v_win_crop_top
@@ -84,7 +85,9 @@ class FindLinesSlidingWindows(object):
         self.closer_importance = closer_importance
         self.center_importance = center_importance
         self.lines = lines
+        vert_x_adjust = (int(vert_x_adjust[0]*scale), int(vert_x_adjust[1]*scale))
         self.vert_x_adjust = vert_x_adjust
+        self.scale = scale
 
     def _calculate_v_fits(self):
         """ Find lines that run vertically on the screen.
@@ -250,7 +253,7 @@ class FindLinesSlidingWindows(object):
 
                 # === DEBUGGING SLIDING WINDOWS ===
                 if self.debug:
-                    cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(255,0,0), 2) 
+                    cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(255,0,0), math.ceil(2*self.scale)) 
                 # === END DEBUGGING SLIDING WINDOWS ===
 
 
@@ -271,7 +274,7 @@ class FindLinesSlidingWindows(object):
                     
                 # === DEBUGGING SLIDING WINDOWS ===
                 if self.debug:
-                    cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), 2) 
+                    cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), math.ceil(2*self.scale)) 
                 # === END DEBUGGING SLIDING WINDOWS ===
 
         # === END SLIDING WINDOWS ===
@@ -871,7 +874,7 @@ class FindLinesSlidingWindows(object):
         >>> a = fig.add_subplot(1, 1, 1)
 
         Args:
-            binary_warped: Warped image.
+            binary_warped: Warped image, 1 channel, and each element should be binary.
         
         Returns:
             A list of fits that contains:

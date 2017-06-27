@@ -1,7 +1,8 @@
 import numpy as np
 import cv2
+import math
 
-def annotate_with_lines(background, lines, keep_background=True):
+def annotate_with_lines(background, lines, keep_background=True, scale=1.0):
     """ Annotate a background with lines. """    
     ploty = [i for i in range(background.shape[0])]
     plotx = [i for i in range(background.shape[1])]
@@ -25,7 +26,7 @@ def annotate_with_lines(background, lines, keep_background=True):
                     pts = np.array([np.transpose(np.vstack([fitxy, ploty]))], np.int32)
                 else:
                     pts = np.array([np.transpose(np.vstack([plotx, fitxy]))], np.int32)
-                cv2.polylines(canvas, np.int_([pts]), False, (255, 0, 0), thickness=3)
+                cv2.polylines(canvas, np.int_([pts]), False, (255, 0, 0), thickness=math.ceil(3*scale))
             
     if 'right' in lines:
         for line in lines['right']:
@@ -35,7 +36,7 @@ def annotate_with_lines(background, lines, keep_background=True):
                     pts = np.array([np.transpose(np.vstack([fitxy, ploty]))], np.int32)
                 else:
                     pts = np.array([np.transpose(np.vstack([plotx, fitxy]))], np.int32)
-                cv2.polylines(canvas, np.int_([pts]), False, (0, 255, 0), thickness=3)
+                cv2.polylines(canvas, np.int_([pts]), False, (0, 255, 0), thickness=math.ceil(3*scale))
         
     return canvas
 

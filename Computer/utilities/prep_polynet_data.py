@@ -50,18 +50,18 @@ def to_label(fits):
     """ Extract information needed to create a label from a fits object.
     """
     if len(fits['left']):
-        left_label = (True, *fits['left'][0]['poly'])
+        left_label = (1, *fits['left'][0]['poly'])
     else:
         # These zeroes may create problems later. Write custom loss
         # function when that happens.
-        left_label = (False, 0, 0, 0)
+        left_label = (0, 0, 0, 0)
 
     if len(fits['right']):
-        right_label = (True, *fits['right'][0]['poly'])
+        right_label = (1, *fits['right'][0]['poly'])
     else:
         # These zeroes may create problems later. Write custom loss
         # function when that happens.
-        right_label = (False, 0, 0, 0)
+        right_label = (0, 0, 0, 0)
     return ((*left_label, *right_label))
 
 def setup_polynomial_data(poly_config):
@@ -174,7 +174,7 @@ def main():
     c = 0
 
     fd = open(results_csv, 'w')
-    head = "left_hasline,left_coef1,left_coef2,left_coef3,right_hasline,right_coef1,right_coef2,right_coef3,imgpath\n"
+    head = "imgpath, left_hasline,left_coef1,left_coef2,left_coef3,right_hasline,right_coef1,right_coef2,right_coef3,annotated_imgpath\n"
     fd.write(head)
 
     for i, image_paths in enumerate(poly_image_paths):
@@ -209,7 +209,11 @@ def main():
                 cv2.imwrite(imgpath, annotated)
 
                 # Add the row to csv file.
-                row = "{},{},{},{},{},{},{},{},{}\n".format(*to_label(fits), imgpath)
+                path = os.path.normpath(imgpath)
+                imgpath_annotated = os.path.join(*path.split(os.sep)[-2:])
+                imgpath_input = os.path.basename(imgpath)
+
+                row = "{},{},{},{},{},{},{},{},{},{}\n".format(imgpath_input, *to_label(fits), imgpath_annotated)
                 fd.write(row)
 
             if c%(max(1,int(row_count/40))) == 0:

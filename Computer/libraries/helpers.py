@@ -5,6 +5,7 @@ import serial
 from keras.models import load_model
 import os, sys
 import pickle
+from PIL import Image, ImageDraw
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -24,13 +25,21 @@ def configuration():
         'target_width': 320,
         'target_height': 240,
         'target_crop': ((120, 10), (0, 0)), # (top, bottom), (left, right)
+        'target_scale': 0.5,
+
+        'poly_target_width': 320,
+        'poly_target_height': 240,
+        'poly_target_scale': 1.0,
+        'poly_channels': 3,
+
         # Look into Arduino code's car.h for SteerFeedMin_ and SteerFeedMax_
         'steer_min': 0,
         'steer_max': 1023,
         # Number of image channels.
         'channels': 1,
         # If the values in image has values 0 to 255, set to True.
-        'normalize': False
+        'normalize': False,
+        'preprocessed_dir': 'preprocessed'
     }
 
 def choose_port(ports):
@@ -72,144 +81,26 @@ def prepare_model(model_path):
     # - "SystemError: unknown opcode": h5 file created with python 3.5, drive.py uses python 3.6.
     return load_model(model_path)
 
-def prepare_initial_transformation_alt(calibration_path, img_height, img_width):
+def prepare_initial_transformation(calibration_path, img_height, img_width, scale=1.0):
     # === Perspective Transformation ===
-    top_width = 100
+    img_height *= scale
+    img_width *= scale
+
+    top_width = img_width
     left_top = (img_width - top_width) / 2
     right_top = left_top + top_width
-    bottom_width = 600
+    bottom_width = img_width*3
     left_bottom = (img_width - bottom_width) / 2
     right_bottom = left_bottom + bottom_width
-    top = 115
-    bottom = 180
+    top = 115*scale
+    bottom = 180*scale
 
     src = np.float32([[left_bottom,bottom],
                      [left_top,top],
                      [right_top,top],
                      [right_bottom,bottom]])
 
-    width = 320
-    left = (img_width - width) / 2
-    right = left + width
-    top = 0
-    bottom = img_height
-    dst = np.float32([[left,bottom],
-                     [left,top],
-                     [right,top],
-                     [right,bottom]])
-
-    M = cv2.getPerspectiveTransform(src, dst)
-    Minv = cv2.getPerspectiveTransform(dst, src)
-
-    # === END Perspective Transformation ===
-
-    # === Calibration ===
-    with open( calibration_path, "rb" ) as pfile:
-        cal = pickle.load(pfile)
-    mtx = cal['mtx']
-    dist = cal['dist']
-    # === END Calibration ===
-
-    return (mtx, dist, M, Minv)
-
-def prepare_initial_transformation1(calibration_path, img_height, img_width):
-    # === Perspective Transformation ===
-    top_width = 320
-    left_top = (img_width - top_width) / 2
-    right_top = left_top + top_width
-    bottom_width = 960
-    left_bottom = (img_width - bottom_width) / 2
-    right_bottom = left_bottom + bottom_width
-    top = 115
-    bottom = 180
-
-    src = np.float32([[left_bottom,bottom],
-                     [left_top,top],
-                     [right_top,top],
-                     [right_bottom,bottom]])
-
-    width = 320
-    left = (img_width - width) / 2
-    right = left + width
-    top = 0
-    bottom = img_height
-    dst = np.float32([[left,bottom],
-                     [left,top],
-                     [right,top],
-                     [right,bottom]])
-
-    M = cv2.getPerspectiveTransform(src, dst)
-    Minv = cv2.getPerspectiveTransform(dst, src)
-
-    # === END Perspective Transformation ===
-
-    # === Calibration ===
-    with open( calibration_path, "rb" ) as pfile:
-        cal = pickle.load(pfile)
-    mtx = cal['mtx']
-    dist = cal['dist']
-    # === END Calibration ===
-
-    return (mtx, dist, M, Minv)
-
-def prepare_initial_transformation1(calibration_path, img_height, img_width):
-    # === Perspective Transformation ===
-    top_width = 320
-    left_top = (img_width - top_width) / 2
-    right_top = left_top + top_width
-    bottom_width = 960
-    left_bottom = (img_width - bottom_width) / 2
-    right_bottom = left_bottom + bottom_width
-    top = 115
-    bottom = 180
-
-    src = np.float32([[left_bottom,bottom],
-                     [left_top,top],
-                     [right_top,top],
-                     [right_bottom,bottom]])
-
-    width = 320
-    left = (img_width - width) / 2
-    right = left + width
-    top = 0
-    bottom = img_height
-    dst = np.float32([[left,bottom],
-                     [left,top],
-                     [right,top],
-                     [right,bottom]])
-
-    M = cv2.getPerspectiveTransform(src, dst)
-    Minv = cv2.getPerspectiveTransform(dst, src)
-
-    # === END Perspective Transformation ===
-
-    # === Calibration ===
-    with open( calibration_path, "rb" ) as pfile:
-        cal = pickle.load(pfile)
-    mtx = cal['mtx']
-    dist = cal['dist']
-    # === END Calibration ===
-
-    return (mtx, dist, M, Minv)
-
-
-def prepare_initial_transformation(calibration_path, img_height, img_width):
-    # === Perspective Transformation ===
-    top_width = 320
-    left_top = (img_width - top_width) / 2
-    right_top = left_top + top_width
-    bottom_width = 960
-    left_bottom = (img_width - bottom_width) / 2
-    right_bottom = left_bottom + bottom_width
-    top = 115
-    bottom = 180
-
-    src = np.float32([[left_bottom,bottom],
-                     [left_top,top],
-                     [right_top,top],
-                     [right_bottom,bottom]])
-
-    width = 320
+    width = img_width
     left = (img_width - width) / 2
     right = left + width
     top = 0
@@ -320,9 +211,11 @@ def preprocess_and_find_lines(img_raw, height, width, crop, mtx, dist, M, Minv):
 #     warped = cv2.warpPerspective(undist, M, (img_raw.shape[1], img_raw.shape[0]))
 #     return warped[:, :, 0]
 
-def preprocess_line_finding(img_raw, M, mtx=None, dist=None, sobel=True, inrange=[[38, 61, 112], [139, 255, 255]]):
+def preprocess_line_finding(img_raw, M, scale=1.0, mtx=None, dist=None, sobel=True, inrange=[[38, 61, 112], [139, 255, 255]]):
     """ Preprocess before line finding.
     """
+    img_raw = resize_image_by_pil(img_raw, scale)
+
     img = cv2.cvtColor(img_raw, cv2.COLOR_BGR2HSV)[:, :, 1]
     img = cv2.Sobel(img, -1, 1, 0, ksize=3)
     img = img > 127
@@ -348,32 +241,6 @@ def preprocess_line_finding(img_raw, M, mtx=None, dist=None, sobel=True, inrange
     warped = cv2.warpPerspective(f3, M, (img_raw.shape[1], img_raw.shape[0]))
     return warped[:, :, 0]
 
-def preprocess_line_finding_dist(img_raw, M, sobel=True, inrange=[[38, 61, 112], [139, 255, 255]]):
-    """ Preprocess before line finding without undistorting.
-    """
-    img = cv2.cvtColor(img_raw, cv2.COLOR_BGR2HSV)[:, :, 1]
-    img = cv2.Sobel(img, -1, 1, 0, ksize=3)
-    img = img > 127
-    
-    img1 = cv2.cvtColor(img_raw, cv2.COLOR_BGR2HSV)[:, :, 2]
-    img1 = cv2.Sobel(img1, -1, 0, 1, ksize=3)
-    img1 = img1 > 127
-    
-    img2 = cv2.cvtColor(img_raw, cv2.COLOR_BGR2HSV)
-    img2 = cv2.inRange(img2, tuple(inrange[0]), tuple(inrange[1]))
-    img2 = img2 > 25.5
-
-    if sobel:
-        final_img = (img==1) | (img1==1) | (img2==1)
-    else:
-        final_img = (img2==1)
-    
-    f3 = np.stack((final_img, final_img, final_img), axis=2)
-    f3 = (f3 * 255.0).astype(np.uint8)
-
-    warped = cv2.warpPerspective(f3, M, (img_raw.shape[1], img_raw.shape[0]))
-    return warped[:, :, 0]
-
 def load_from(data_path):
     """ Load file into list.
     """
@@ -387,3 +254,71 @@ def load_from(data_path):
             for line in lines_buffer:
                 data.append(line.strip())
     return data
+
+def remove_generic(path, __func__):
+    try:
+        __func__(path)
+    except OSError as error:
+        print("OS error: {0}".format(error))
+
+def clean_dir(path):
+    if not os.path.isdir(path):
+        return
+
+    files = os.listdir(path)
+    for x in files:
+        full_path = os.path.join(path, x)
+        if os.path.isfile(full_path):
+            f = os.remove
+            remove_generic(full_path, f)
+        elif os.path.isdir(full_path):
+            clean_dir(full_path)
+            f = os.rmdir
+            remove_generic(full_path, f)
+
+
+def convert_rgb_to_y(image, jpeg_mode=True, max_value=255):
+    if len(image.shape) <= 2 or image.shape[2] == 1:
+        return image
+
+    y_image = np.zeros([image.shape[0], image.shape[1], 1])  # type: np.ndarray
+    if jpeg_mode:
+        for i in range(image.shape[0]):
+            for j in range(image.shape[1]):
+                y_image[i, j, 0] = 0.299 * image[i, j, 0] + 0.587 * image[i, j, 1] + 0.114 * image[i, j, 2]
+    else:
+        for i in range(image.shape[0]):
+            for j in range(image.shape[1]):
+                y_image[i, j, 0] = (16.0 * max_value + 65.481 * image[i, j, 0] + 128.553 * image[i, j, 1] + 24.966 *
+                                    image[i, j, 2]) / 256.0
+    return y_image
+
+
+def resize_image_by_pil(image, scale, resampling_method="bicubic"):
+    width, height = image.shape[1], image.shape[0]
+    new_width = int(width * scale)
+    new_height = int(height * scale)
+
+    if resampling_method == "bicubic":
+        method = Image.BICUBIC
+    elif resampling_method == "bilinear":
+        method = Image.BILINEAR
+    elif resampling_method == "nearest":
+        method = Image.NEAREST
+    elif resampling_method == "hamming":
+        method = Image.HAMMING
+    elif resampling_method == "box":
+        method = Image.BOX
+    else:
+        method = Image.LANCZOS
+
+    if len(image.shape) == 3 and image.shape[2] == 3:
+        image = Image.fromarray(image, "RGB")
+        image = image.resize([new_width, new_height], resample=method)
+        image = np.asarray(image)
+    else:
+        image = Image.fromarray(image.reshape(height, width))
+        image = image.resize([new_width, new_height], resample=method)
+        image = np.asarray(image)
+        image = image.reshape(new_height, new_width, 1)
+    return image

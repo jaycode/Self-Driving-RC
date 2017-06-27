@@ -8,6 +8,7 @@
 [system]: ./Docs/System.png
 [mpc]: ./Docs/MPC.png
 [sliding_window]: ./Docs/sliding_window.png
+[waypoints]: ./Docs/waypoints.png
 
 
 ![Front view][1]
@@ -78,7 +79,11 @@ This method has been extensively discussed in [another project](https://github.c
 - There is a simple clustering mechanism within each sliding window (green and red boxes in the image above) to help the algorithm decide on a branch to pick. Notice in the screenshot above the predicted line correctly picked the trajectory that goes to the top-right section.
 - There is also a weight adjustment that makes a preference of lines that are closer to the car (i.e. middle, bottom).
 
-The research on the computer vision methods is done in [this Jupyter Notebook document](https://github.com/jaycode/Self-Driving-RC/blob/master/Computer/experiments/preprocess/Line%20Finding.ipynb).
+The research on the computer vision methods is done in [this Jupyter Notebook document](https://github.com/jaycode/Self-Driving-RC/blob/master/Computer/experiments/poly/Default%20Poly.ipynb).
+
+To detect waypoints, we simply convert the polynomials into vertical ones (i.e. starts from bottom) and get the average polynomial. Here is an example of produced waypoints from the above path:
+
+![Waypoints][waypoints]
 
 #### Problems with Computer Vision techniques in detecting lane lines.
 

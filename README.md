@@ -119,4 +119,5 @@ This project has received tremendous help from these amazing people:
 - [Guy Georgy Pavlov](https://github.com/gpavlov2016): Oversees the project and highly involved in gettting this project off the ground.
 - Eugene Fainstain: Debugging the issues with microcontroller and how the components "talk" to each other, and ideas for the system's architecture.
 - [Jin Yamanaka](https://github.com/jiny2001): Debugging and improvements on deep learning system performance.
+- [John Sokol](http://www.johnsokol.com/): Initial design ideas and advice on the components.
 - Many others in the [Hackerdojo](https://hackerdojo.com/) community who let us use this place as a training ground and their tools and amenities.
